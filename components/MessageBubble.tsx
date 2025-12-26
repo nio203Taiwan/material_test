@@ -1,7 +1,7 @@
 import React from 'react';
 import { Message } from '../types';
 import { MarkdownRenderer } from './MarkdownRenderer';
-import { User, Bot } from 'lucide-react';
+import { Cpu, User } from 'lucide-react';
 
 interface MessageBubbleProps {
   message: Message;
@@ -11,29 +11,38 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
   const isUser = message.role === 'user';
 
   return (
-    <div className={`flex w-full mb-6 ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div className={`flex max-w-[85%] md:max-w-[75%] gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+    <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'}`}>
+      <div className={`flex max-w-[90%] md:max-w-[80%] gap-4 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
         
-        {/* Avatar */}
-        <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center ${isUser ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}>
-            {isUser ? <User size={20} /> : <Bot size={20} />}
+        {/* Avatar Area */}
+        <div className={`flex-shrink-0 h-12 w-12 border-2 flex items-center justify-center shadow-lg ${
+            isUser ? 'bg-cyan-900/40 border-cyan-500 text-cyan-400' : 'bg-slate-800 border-slate-600 text-slate-400'
+        }`}>
+            {isUser ? <User size={24} /> : <Cpu size={24} />}
         </div>
 
-        {/* Content */}
+        {/* Bubble Content */}
         <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
-            <div className={`px-5 py-3 rounded-2xl text-sm md:text-base shadow-sm ${
+            <div className={`p-5 shadow-2xl border-l-4 ${
                 isUser 
-                ? 'bg-blue-600 text-white rounded-tr-none' 
-                : 'bg-white border border-slate-200 text-slate-800 rounded-tl-none'
+                ? 'bg-slate-800/80 border-cyan-500 text-cyan-50' 
+                : 'bg-slate-800/40 border-industrial-rust text-slate-200'
             }`}>
+                <div className="mb-2 flex items-center gap-2 opacity-50">
+                   <span className="text-[9px] font-mono uppercase tracking-tighter">
+                     {isUser ? 'TRANSMISSION_USER' : 'TRANSMISSION_MATSCI_CORE'}
+                   </span>
+                   <div className="h-px flex-1 bg-current opacity-20"></div>
+                </div>
+                
                 {isUser ? (
-                    <div className="whitespace-pre-wrap">{message.text}</div>
+                    <div className="whitespace-pre-wrap font-sans leading-relaxed">{message.text}</div>
                 ) : (
                     <MarkdownRenderer content={message.text} />
                 )}
             </div>
-            <span className="text-xs text-slate-400 mt-1 px-1">
-                {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            <span className="text-[10px] font-mono text-slate-600 mt-2 px-1 tracking-widest uppercase">
+                TS: {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </span>
         </div>
       </div>

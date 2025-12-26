@@ -3,7 +3,7 @@ import { Message, NoteData } from './types';
 import { NoteUploader } from './components/NoteUploader';
 import { MessageBubble } from './components/MessageBubble';
 import { Button } from './components/Button';
-import { Send, Settings, X, AlertTriangle, BookOpen } from 'lucide-react';
+import { Send, Settings, X, AlertTriangle, Cpu, HardHat, Gauge } from 'lucide-react';
 import { initializeChat, sendMessage } from './services/geminiService';
 
 const STORAGE_KEY = 'matsci_ta_notes';
@@ -29,7 +29,6 @@ const App: React.FC = () => {
             setIsInitializing(false);
           }
         } catch (e) {
-          console.error("Storage load error:", e);
           setIsInitializing(false);
         }
       } else {
@@ -52,7 +51,7 @@ const App: React.FC = () => {
       setMessages([{ role: 'model', text: initialResponse, timestamp: Date.now() }]);
       setIsAdminOpen(false);
     } catch (err: any) {
-      setError(err.message || "初始化失敗。");
+      setError(err.message || "Initialization Failed.");
     } finally {
       setIsLoading(false);
       setIsInitializing(false);
@@ -73,77 +72,94 @@ const App: React.FC = () => {
       const responseText = await sendMessage(userMsg.text);
       setMessages((prev) => [...prev, { role: 'model', text: responseText, timestamp: Date.now() }]);
     } catch (err: any) {
-      setError("連線失敗：" + err.message);
+      setError("Comms Error: " + err.message);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col relative">
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-                <div className="bg-blue-600 text-white p-1.5 rounded-lg shadow-blue-200 shadow-lg">
-                    <BookOpen size={20} />
+    <div className="min-h-screen flex flex-col font-sans selection:bg-cyan-500/30">
+      {/* Heavy Industrial Header */}
+      <header className="bg-industrial-charcoal border-b-2 border-slate-700 sticky top-0 z-20 shadow-2xl">
+        <div className="caution-stripe h-1 w-full"></div>
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+                <div className="bg-industrial-rust text-white p-2 border-2 border-amber-400 shadow-[0_0_15px_rgba(217,119,6,0.4)]">
+                    <Cpu size={24} />
                 </div>
                 <div>
-                  <h1 className="font-bold text-lg leading-tight">材料科學助教</h1>
-                  <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Materials Science Graduate Exam TA</p>
+                  <h1 className="font-mono font-bold text-xl tracking-tighter text-slate-100 uppercase">MatSci.Processor_v3</h1>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                    <p className="text-[10px] text-cyan-500 font-mono tracking-widest uppercase">System Online // TA Node Active</p>
+                  </div>
                 </div>
             </div>
-            <button onClick={() => setIsAdminOpen(true)} className="p-2 text-slate-400 hover:text-blue-600 transition-all">
+            <button onClick={() => setIsAdminOpen(true)} className="p-2 text-slate-500 hover:text-cyan-400 border border-slate-700 hover:border-cyan-400 transition-all bg-slate-800/50">
               <Settings size={20} />
             </button>
         </div>
       </header>
 
-      <main className="flex-1 w-full max-w-5xl mx-auto flex flex-col relative overflow-hidden">
+      <main className="flex-1 w-full max-w-6xl mx-auto flex flex-col relative overflow-hidden bg-industrial-charcoal/80 backdrop-blur-sm border-x border-slate-800 shadow-inner">
         {error && (
-          <div className="m-4 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-red-600 text-sm">
+          <div className="m-4 p-4 bg-red-900/20 border-l-4 border-red-500 text-red-400 text-sm flex items-center gap-3 font-mono">
             <AlertTriangle size={18} />
             <div className="flex-1">{error}</div>
-            <button onClick={() => setError(null)} className="p-1 hover:bg-red-100 rounded-lg"><X size={16} /></button>
+            <button onClick={() => setError(null)} className="p-1 hover:bg-red-500/20 rounded"><X size={16} /></button>
           </div>
         )}
 
         {isInitializing ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-            <p className="text-slate-500">正在召喚助教中...</p>
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
+            <div className="relative">
+                <div className="w-16 h-16 border-4 border-slate-800 border-t-cyan-500 rounded-full animate-spin"></div>
+                <Gauge className="absolute inset-0 m-auto text-cyan-500" size={24} />
+            </div>
+            <p className="text-cyan-500 font-mono text-sm tracking-widest animate-pulse">BOOTING MATSCI_CORE...</p>
           </div>
         ) : messages.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center p-10 text-center">
-            <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 max-w-sm">
-              <h2 className="text-xl font-bold mb-2">準備開始考試？</h2>
-              <p className="text-slate-500 mb-6 text-sm">請先在後台部署您的筆記資料。</p>
-              <Button onClick={() => setIsAdminOpen(true)}>進入部署後台</Button>
+            <div className="bg-slate-800/50 p-10 border border-slate-700 shadow-2xl max-w-md relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                <HardHat size={80} />
+              </div>
+              <h2 className="text-2xl font-mono font-bold text-slate-100 mb-4 tracking-tight underline decoration-cyan-500 underline-offset-8">INITIATE EXAM MODE</h2>
+              <p className="text-slate-400 mb-8 text-sm leading-relaxed">System requires material data injection. Please deploy notes to start processing.</p>
+              <Button onClick={() => setIsAdminOpen(true)} className="w-full py-4 text-lg">DEPLOY SOURCE DATA</Button>
             </div>
           </div>
         ) : (
           <div className="flex flex-col h-full">
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
+            <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 custom-scrollbar">
               {messages.map((msg, idx) => <MessageBubble key={idx} message={msg} />)}
               {isLoading && (
                  <div className="flex justify-start">
-                    <div className="bg-white border border-slate-200 px-5 py-3 rounded-2xl rounded-tl-none shadow-sm animate-pulse text-slate-400 text-sm">助教正在思考中...</div>
+                    <div className="bg-slate-800 border-l-4 border-cyan-500 px-6 py-4 shadow-xl text-cyan-400 font-mono text-sm flex items-center gap-3">
+                        <div className="w-2 h-2 bg-cyan-500 rounded-full animate-ping"></div>
+                        <span>Processing analysis...</span>
+                    </div>
                 </div>
               )}
               <div ref={messagesEndRef} />
             </div>
 
-            <div className="p-4 bg-white border-t border-slate-200">
-                <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto flex gap-2">
-                    <textarea
-                        className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-                        placeholder="輸入您的回答..."
-                        rows={1}
-                        value={inputText}
-                        onChange={(e) => setInputText(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
-                    />
-                    <button type="submit" disabled={!inputText.trim() || isLoading} className="h-[48px] w-[48px] rounded-xl bg-blue-600 text-white flex items-center justify-center disabled:opacity-50">
-                        <Send size={18} />
+            <div className="p-6 bg-industrial-charcoal border-t border-slate-800 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+                <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto flex gap-3">
+                    <div className="flex-1 relative group">
+                        <textarea
+                            className="w-full p-4 bg-slate-900 border border-slate-700 text-slate-100 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 outline-none resize-none font-mono text-sm transition-all"
+                            placeholder="Input technical response..."
+                            rows={1}
+                            value={inputText}
+                            onChange={(e) => setInputText(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
+                        />
+                        <div className="absolute bottom-0 left-0 h-0.5 w-0 group-focus-within:w-full bg-cyan-500 transition-all duration-300"></div>
+                    </div>
+                    <button type="submit" disabled={!inputText.trim() || isLoading} className="h-[58px] px-6 bg-industrial-rust text-white flex items-center justify-center disabled:opacity-30 border-b-4 border-amber-700 active:translate-y-1 active:border-b-0 transition-all shadow-lg hover:bg-amber-600">
+                        <Send size={20} />
                     </button>
                 </form>
             </div>
@@ -152,15 +168,20 @@ const App: React.FC = () => {
       </main>
 
       {isAdminOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="relative bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl shadow-2xl p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold">部署後台</h2>
-              <button onClick={() => setIsAdminOpen(false)} className="p-2 hover:bg-slate-100 rounded-full"><X size={20} /></button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="relative bg-slate-900 w-full max-w-2xl max-h-[90vh] overflow-y-auto border-2 border-slate-700 shadow-[0_0_50px_rgba(0,0,0,1)] p-8">
+            <div className="flex items-center justify-between mb-8 border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <Settings className="text-cyan-500" size={24} />
+                <h2 className="text-xl font-mono font-bold uppercase text-slate-100 tracking-tighter">System Configuration</h2>
+              </div>
+              <button onClick={() => setIsAdminOpen(false)} className="p-2 hover:text-red-500 transition-colors text-slate-500 border border-slate-800"><X size={20} /></button>
             </div>
             <NoteUploader onNotesSubmit={handleStartSession} isLoading={isLoading} />
-            <div className="mt-6 text-center">
-                <button onClick={() => { if(confirm("重設後需要重新上傳筆記，確定？")) { localStorage.clear(); window.location.reload(); } }} className="text-xs text-red-400 hover:text-red-600 underline">清除所有部署資料</button>
+            <div className="mt-8 pt-6 border-t border-slate-800 text-center">
+                <button onClick={() => { if(confirm("Purge all system data?")) { localStorage.clear(); window.location.reload(); } }} className="text-[10px] font-mono text-slate-600 hover:text-red-500 uppercase tracking-widest transition-colors">
+                  [ System Purge / Factory Reset ]
+                </button>
             </div>
           </div>
         </div>

@@ -7,28 +7,22 @@ interface MarkdownRendererProps {
   content: string;
 }
 
-// Since we cannot install packages in this environment, we are simulating the structure.
-// In a real environment, you would run: npm install react-markdown remark-math rehype-katex
-// If these libraries are not available in the runner, this might fall back to plain text or basic markdown.
-// However, the prompt allows "popular libraries".
-
 export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) => {
   return (
-    <div className="prose prose-slate max-w-none dark:prose-invert">
+    <div className="prose prose-invert max-w-none prose-slate">
       <ReactMarkdown
         remarkPlugins={[remarkMath]}
         rehypePlugins={[rehypeKatex]}
         components={{
-            // Custom styling for specific elements if needed
-            p: ({children}) => <p className="mb-2 leading-relaxed">{children}</p>,
-            h1: ({children}) => <h1 className="text-xl font-bold mt-4 mb-2">{children}</h1>,
-            h2: ({children}) => <h2 className="text-lg font-bold mt-3 mb-2">{children}</h2>,
-            h3: ({children}) => <h3 className="text-md font-bold mt-2 mb-1">{children}</h3>,
-            ul: ({children}) => <ul className="list-disc pl-5 mb-2 space-y-1">{children}</ul>,
-            ol: ({children}) => <ol className="list-decimal pl-5 mb-2 space-y-1">{children}</ol>,
-            li: ({children}) => <li className="pl-1">{children}</li>,
-            code: ({children}) => <code className="bg-slate-100 dark:bg-slate-700 px-1 py-0.5 rounded text-sm font-mono text-red-500">{children}</code>,
-            blockquote: ({children}) => <blockquote className="border-l-4 border-slate-300 pl-4 italic text-slate-600 dark:text-slate-400 my-2">{children}</blockquote>
+            p: ({children}) => <p className="mb-4 leading-relaxed font-sans">{children}</p>,
+            h1: ({children}) => <h1 className="text-cyan-400 font-mono font-bold text-xl mt-6 mb-4 border-b border-cyan-900 pb-2 uppercase tracking-tighter">{children}</h1>,
+            h2: ({children}) => <h2 className="text-amber-500 font-mono font-bold text-lg mt-5 mb-3 uppercase tracking-tighter">{children}</h2>,
+            ul: ({children}) => <ul className="list-square pl-5 mb-4 space-y-2 text-slate-300">{children}</ul>,
+            ol: ({children}) => <ol className="list-decimal pl-5 mb-4 space-y-2 text-slate-300">{children}</ol>,
+            li: ({children}) => <li className="pl-1 marker:text-cyan-600">{children}</li>,
+            code: ({children}) => <code className="bg-slate-900 border border-slate-700 px-1.5 py-0.5 rounded text-amber-400 font-mono text-sm">{children}</code>,
+            blockquote: ({children}) => <blockquote className="border-l-4 border-cyan-800 pl-4 italic text-slate-400 my-4 bg-cyan-950/20 py-2">{children}</blockquote>,
+            strong: ({children}) => <strong className="text-cyan-300 font-bold">{children}</strong>
         }}
       >
         {content}
