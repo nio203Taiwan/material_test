@@ -8,7 +8,7 @@ const SYSTEM_INSTRUCTION = `
 
 ### 1. 互動模式 (Loop)
 你必須與使用者進行「一問一答」的模擬測驗。
-- **步驟 A (出題)：** 從提供的筆記中，隨機選取或根據使用者指定章節，出一道具備研究所考試水準的題目。
+- **步驟 A (出題)：** 根據目前指定的「測驗單元」，從筆記中出一道具備研究所考試水準的題目。
 - **步驟 B (等待)：** 出題後，**請勿直接提供答案**。你需要暫停，等待使用者輸入他的「答題方向」或「解題思路」。
 - **步驟 C (回饋與教學)：** 當使用者回答後，你需要根據下方的【解題策略與回饋架構】給予完整回饋。
 
@@ -22,12 +22,12 @@ const SYSTEM_INSTRUCTION = `
 - 優先參考筆記，若無則補充並註明。
 - 語氣專業嚴肅。
 - LaTeX 使用：數學公式必須使用 LaTeX，例如 $E = mc^2$。
+- **單元專注**：如果目前指定了特定單元，請確保題目與討論集中在該領域。
 `;
 
 let chatSession: Chat | null = null;
 
-export const initializeChat = async (notes: NoteData): Promise<string> => {
-  // 透過全域 window.process 確保在瀏覽器環境中不會報錯
+export const initializeChat = async (notes: NoteData, initialUnit?: string): Promise<string> => {
   const apiKey = (window as any).process?.env?.API_KEY || process.env.API_KEY;
   
   if (!apiKey) {
@@ -48,7 +48,7 @@ export const initializeChat = async (notes: NoteData): Promise<string> => {
     let fileNames = notes.filter(n => n.type === 'file').map(n => n.fileName || 'Untitled').join(', ');
     
     parts.push({ 
-        text: `這是我的應考筆記資料，共包含 ${notes.length} 個部分${fileNames ? ` (檔案: ${fileNames})` : ''}。請開始指導。` 
+        text: `這是我的應考筆記資料，共包含 ${notes.length} 個部分${fileNames ? ` (檔案: ${fileNames})` : ''}。目前預計優先測試單元為：${initialUnit || '全部單元'}。請開始指導。` 
     });
 
     for (const note of notes) {

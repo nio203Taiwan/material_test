@@ -3,13 +3,24 @@ import { Message, NoteData } from './types';
 import { NoteUploader } from './components/NoteUploader';
 import { MessageBubble } from './components/MessageBubble';
 import { Button } from './components/Button';
-import { Send, Settings, X, AlertTriangle, Cpu, HardHat, Gauge } from 'lucide-react';
+import { Send, Settings, X, AlertTriangle, Cpu, HardHat, Gauge, Layers } from 'lucide-react';
 import { initializeChat, sendMessage } from './services/geminiService';
 
 const STORAGE_KEY = 'matsci_ta_notes';
 
+const UNITS = [
+  { id: 'all', label: 'ALL_SECTORS', desc: '綜合全章節' },
+  { id: 'crystal', label: 'CRYSTAL_STR', desc: '晶體結構' },
+  { id: 'thermo', label: 'THERMO_DYN', desc: '材料熱力學' },
+  { id: 'kinetics', label: 'KINETICS', desc: '材料動力學' },
+  { id: 'phase', label: 'PHASE_DIAG', desc: '相圖與相變' },
+  { id: 'mech', label: 'MECH_PROP', desc: '機械性質' },
+  { id: 'elec', label: 'ELEC_MATS', desc: '電子/電磁性質' },
+];
+
 const App: React.FC = () => {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [selectedUnit, setSelectedUnit] = useState(UNITS[0]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -47,7 +58,8 @@ const App: React.FC = () => {
     setError(null);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(noteData));
-      const initialResponse = await initializeChat(noteData);
+      // Pass the selected unit to the initialization
+      const initialResponse = await initializeChat(noteData, selectedUnit.desc);
       setMessages([{ role: 'model', text: initialResponse, timestamp: Date.now() }]);
       setIsAdminOpen(false);
     } catch (err: any) {
@@ -55,6 +67,24 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
       setIsInitializing(false);
+    }
+  };
+
+  const handleUnitChange = async (unit: typeof UNITS[0]) => {
+    if (isLoading || isInitializing) return;
+    setSelectedUnit(unit);
+    
+    // If chat is already active, notify the model of the unit switch
+    if (messages.length > 0) {
+      setIsLoading(true);
+      try {
+        const responseText = await sendMessage(`[系統指令]: 使用者已切換測驗單元為「${unit.desc}」。請立即根據此單元出題或進行指導。`);
+        setMessages((prev) => [...prev, { role: 'model', text: responseText, timestamp: Date.now() }]);
+      } catch (err: any) {
+        setError("Unit Switch Error: " + err.message);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -80,7 +110,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col font-sans selection:bg-cyan-500/30">
-      {/* Heavy Industrial Header */}
       <header className="bg-industrial-charcoal border-b-2 border-slate-700 sticky top-0 z-20 shadow-2xl">
         <div className="caution-stripe h-1 w-full"></div>
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -99,6 +128,32 @@ const App: React.FC = () => {
             <button onClick={() => setIsAdminOpen(true)} className="p-2 text-slate-500 hover:text-cyan-400 border border-slate-700 hover:border-cyan-400 transition-all bg-slate-800/50">
               <Settings size={20} />
             </button>
+        </div>
+        
+        {/* Sector Selector Menu */}
+        <div className="bg-slate-900 border-t border-slate-800 px-6 py-2 overflow-x-auto whitespace-nowrap custom-scrollbar">
+          <div className="max-w-6xl mx-auto flex items-center gap-3">
+            <div className="flex items-center gap-2 text-slate-500 font-mono text-[10px] pr-4 border-r border-slate-800">
+               <Layers size={14} />
+               <span>SECTOR_SELECT:</span>
+            </div>
+            {UNITS.map((unit) => (
+              <button
+                key={unit.id}
+                onClick={() => handleUnitChange(unit)}
+                className={`px-3 py-1 font-mono text-xs border transition-all relative ${
+                  selectedUnit.id === unit.id 
+                  ? 'border-cyan-500 text-cyan-400 bg-cyan-900/20 shadow-[0_0_10px_rgba(8,145,178,0.2)]' 
+                  : 'border-slate-800 text-slate-500 hover:border-slate-600 hover:text-slate-400 bg-slate-800/20'
+                }`}
+              >
+                {unit.label}
+                {selectedUnit.id === unit.id && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-cyan-500 rounded-full shadow-[0_0_5px_#0891B2]"></span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
@@ -150,7 +205,7 @@ const App: React.FC = () => {
                     <div className="flex-1 relative group">
                         <textarea
                             className="w-full p-4 bg-slate-900 border border-slate-700 text-slate-100 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 outline-none resize-none font-mono text-sm transition-all"
-                            placeholder="Input technical response..."
+                            placeholder={`Input response for [${selectedUnit.label}]...`}
                             rows={1}
                             value={inputText}
                             onChange={(e) => setInputText(e.target.value)}
