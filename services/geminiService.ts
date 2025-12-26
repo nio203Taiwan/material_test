@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Chat, Part } from "@google/genai";
 import { NoteData } from "../types";
 
@@ -47,30 +48,26 @@ export const initializeChat = async (notes: NoteData): Promise<string> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-    // Initialize the chat with the persona and the notes as context
     chatSession = ai.chats.create({
         model: 'gemini-3-flash-preview',
         config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
+            systemInstruction: SYSTEM_INSTRUCTION,
         },
     });
 
-    // Construct the multi-part message payload
-    const parts: Array<string | Part> = [];
+    const parts: Part[] = [];
     
-    // Add introductory text
     let fileNames = notes.filter(n => n.type === 'file').map(n => n.fileName || 'Untitled').join(', ');
     parts.push({ 
         text: `這是我的應考筆記資料，共包含 ${notes.length} 個部分${fileNames ? ` (檔案: ${fileNames})` : ''}。請詳細閱讀並依照你的角色設定開始指導我。` 
     });
 
-    // Attach all contents (files and text)
     for (const note of notes) {
         if (note.type === 'file') {
             parts.push({
                 inlineData: {
-                mimeType: note.mimeType,
-                data: note.content
+                    mimeType: note.mimeType,
+                    data: note.content
                 }
             });
         } else {
@@ -80,18 +77,13 @@ export const initializeChat = async (notes: NoteData): Promise<string> => {
         }
     }
   
-    const response = await chatSession.sendMessage({ message: parts });
+    // 修正：傳送含有多個 parts 的 Content 物件
+    const response = await chatSession.sendMessage({ message: { parts } });
     return response.text || "系統發生錯誤，無法讀取筆記。";
   } catch (error: any) {
     console.error("Error initializing chat:", error);
     if (error.message?.includes('process is not defined')) {
-        throw new Error("環境設定錯誤：API Key 無法讀取 (Process not defined)。請確保部署環境已設定環境變數。");
-    }
-    if (error.status === 400) {
-        throw new Error("請求失敗：可能是檔案過大或格式不支援。請減少檔案數量或大小後再試。");
-    }
-    if (error.status === 401 || error.status === 403) {
-        throw new Error("權限錯誤：API Key 無效或過期。");
+        throw new Error("環境設定錯誤：API Key 無法讀取。請在 Vercel 設定中添加 API_KEY 變數。");
     }
     throw new Error(`連線失敗：${error.message || '請檢查網路狀態'}`);
   }
