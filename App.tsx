@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'https://esm.sh/react@18.3.1';
 import { Message, NoteData } from './types';
 import { NoteUploader } from './components/NoteUploader';
 import { MessageBubble } from './components/MessageBubble';
@@ -58,7 +58,6 @@ const App: React.FC = () => {
     setError(null);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(noteData));
-      // Pass the selected unit to the initialization
       const initialResponse = await initializeChat(noteData, selectedUnit.desc);
       setMessages([{ role: 'model', text: initialResponse, timestamp: Date.now() }]);
       setIsAdminOpen(false);
@@ -74,7 +73,6 @@ const App: React.FC = () => {
     if (isLoading || isInitializing) return;
     setSelectedUnit(unit);
     
-    // If chat is already active, notify the model of the unit switch
     if (messages.length > 0) {
       setIsLoading(true);
       try {
@@ -130,7 +128,6 @@ const App: React.FC = () => {
             </button>
         </div>
         
-        {/* Sector Selector Menu */}
         <div className="bg-slate-900 border-t border-slate-800 px-6 py-2 overflow-x-auto whitespace-nowrap custom-scrollbar">
           <div className="max-w-6xl mx-auto flex items-center gap-3">
             <div className="flex items-center gap-2 text-slate-500 font-mono text-[10px] pr-4 border-r border-slate-800">
