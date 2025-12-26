@@ -1,25 +1,28 @@
 import React from 'react';
-import ReactDOM from 'react-dom/client';
+import { createRoot } from 'react-dom/client';
 import App from './App';
 
-const rootElement = document.getElementById('root');
-if (!rootElement) {
-  throw new Error("Could not find root element to mount to");
-}
+const container = document.getElementById('root');
 
-const root = ReactDOM.createRoot(rootElement);
-
-try {
-  root.render(
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>
-  );
-} catch (error) {
-  console.error("Mounting error:", error);
-  rootElement.innerHTML = `<div style="padding: 20px; color: #f87171; font-family: monospace;">
-    <h2>System Boot Error</h2>
-    <p>${error instanceof Error ? error.message : 'Unknown fatal error during mount'}</p>
-    <button onclick="window.location.reload()" style="background: #334155; color: white; padding: 8px 16px; border: none; cursor: pointer;">Retry Boot</button>
-  </div>`;
+if (!container) {
+  console.error("Fatal: Root container not found.");
+} else {
+  try {
+    const root = createRoot(container);
+    root.render(
+      <React.StrictMode>
+        <App />
+      </React.StrictMode>
+    );
+  } catch (err) {
+    console.error("Mounting error:", err);
+    container.innerHTML = `
+      <div style="background: #1e293b; color: #f87171; padding: 2rem; font-family: monospace; border: 2px solid #ef4444; margin: 2rem;">
+        <h1 style="font-size: 1.5rem; margin-bottom: 1rem;">[SYSTEM_FATAL_ERROR]</h1>
+        <p>初始化失敗：${err instanceof Error ? err.message : '未知錯誤'}</p>
+        <p style="margin-top: 1rem; color: #94a3b8; font-size: 0.875rem;">請確認 API Key 是否已正確配置於環境變數中。</p>
+        <button onclick="window.location.reload()" style="margin-top: 1rem; background: #c2410c; color: white; padding: 0.5rem 1rem; border: none; cursor: pointer;">RETRY_BOOT</button>
+      </div>
+    `;
+  }
 }
