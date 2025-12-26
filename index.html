@@ -7,7 +7,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;500&family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <script>
-      window.process = { env: { API_KEY: "" } };
+      // 確保 process 物件在所有環境下都能被安全讀取
+      if (typeof window !== 'undefined') {
+        window.process = window.process || { env: {} };
+      }
+      
       tailwind.config = {
         darkMode: 'class',
         theme: {
@@ -18,9 +22,9 @@
             },
             colors: {
               industrial: {
-                charcoal: '#121417',
-                metal: '#2A2E35',
-                rust: '#D97706',
+                charcoal: '#0d0f11',
+                metal: '#212529',
+                rust: '#c2410c',
                 blueprint: '#0891B2',
               }
             }
@@ -30,22 +34,38 @@
     </script>
     <style>
       body {
-        background-color: #121417;
-        background-image: radial-gradient(#2A2E35 0.5px, transparent 0.5px);
-        background-size: 20px 20px;
+        background-color: #0d0f11;
+        background-image: 
+          linear-gradient(rgba(33, 37, 41, 0.3) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(33, 37, 41, 0.3) 1px, transparent 1px);
+        background-size: 30px 30px;
+        margin: 0;
+        overflow-x: hidden;
       }
       .industrial-border {
         border: 1px solid #334155;
-        box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
       }
       .caution-stripe {
         background: repeating-linear-gradient(
           45deg,
-          #D97706,
-          #D97706 10px,
-          #121417 10px,
-          #121417 20px
+          #c2410c,
+          #c2410c 10px,
+          #0d0f11 10px,
+          #0d0f11 20px
         );
+      }
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: #0d0f11;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #334155;
+        border-radius: 3px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #0891B2;
       }
     </style>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">

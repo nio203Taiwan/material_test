@@ -27,9 +27,11 @@ const SYSTEM_INSTRUCTION = `
 let chatSession: Chat | null = null;
 
 export const initializeChat = async (notes: NoteData): Promise<string> => {
-  const apiKey = process.env.API_KEY;
+  // 透過全域 window.process 確保在瀏覽器環境中不會報錯
+  const apiKey = (window as any).process?.env?.API_KEY || process.env.API_KEY;
+  
   if (!apiKey) {
-    throw new Error("找不到 API_KEY 環境變數。請在 Vercel 後台設定 API_KEY。");
+    throw new Error("找不到 API_KEY 環境變數。請確認專案設定中已正確注入金鑰。");
   }
 
   try {
@@ -60,20 +62,20 @@ export const initializeChat = async (notes: NoteData): Promise<string> => {
     }
   
     const response = await chatSession.sendMessage({ message: { parts } });
-    return response.text || "助教已就位。";
+    return response.text || "助教已成功加載，隨時可以開始。";
   } catch (error: any) {
     console.error("Gemini Init Error:", error);
-    throw new Error(`初始化失敗: ${error.message}`);
+    throw new Error(`系統初始化失敗: ${error.message || '未知錯誤'}`);
   }
 };
 
 export const sendMessage = async (message: string): Promise<string> => {
-  if (!chatSession) throw new Error("聊天室尚未初始化");
+  if (!chatSession) throw new Error("通訊模組尚未初始化");
   try {
     const response = await chatSession.sendMessage({ message });
     return response.text || "";
   } catch (error: any) {
     console.error("Gemini Send Error:", error);
-    throw new Error(error.message);
+    throw new Error(`訊息傳送失敗: ${error.message}`);
   }
 };
