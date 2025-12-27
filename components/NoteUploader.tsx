@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from './Button.tsx';
-import { File as FileIcon, Trash2, Plus, AlertCircle, Database, Cloud } from 'lucide-react';
+import { File as FileIcon, Trash2, Plus, AlertCircle, Database, Cloud, Loader2, Info, BookOpen } from 'lucide-react';
 import { NoteData, NoteItem } from '../types.ts';
 
 interface NoteUploaderProps {
@@ -8,34 +8,42 @@ interface NoteUploaderProps {
   isLoading: boolean;
 }
 
-const STORAGE_KEY = 'matsci_ta_notes';
+const STORAGE_KEY_TEXT = 'matsci_ta_text_only';
 const DRIVE_FOLDER_ID = "1HIK1rmsqBh0vmHf-g8TcwMLxzJ2Y-B_o";
+const MAX_FILE_SIZE = 45 * 1024 * 1024; // 單一檔案傳輸上限
 
 export const NoteUploader: React.FC<NoteUploaderProps> = ({ onNotesSubmit, isLoading }) => {
   const [text, setText] = useState('');
   const [files, setFiles] = useState<NoteItem[]>([]);
-  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
-  const MAX_FILES = 5;
+  const [isReadingFile, setIsReadingFile] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const MAX_FILES = 8; // 增加上限以容納分片
 
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem(STORAGE_KEY_TEXT);
     if (saved) {
       try {
-        const data: NoteData = JSON.parse(saved);
-        setFiles(data.filter(i => i.type === 'file'));
-        const t = data.find(i => i.type === 'text');
-        if (t) setText(t.content);
+        const data = JSON.parse(saved);
+        if (Array.isArray(data)) {
+          setText(data[0]?.content || '');
+        }
       } catch (e) {}
     }
   }, []);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setUploadStatus(null);
+    setErrorMessage(null);
     const selectedFiles = Array.from(e.target.files || []) as File[];
+    if (selectedFiles.length === 0) return;
+
+    setIsReadingFile(true);
+    let processedCount = 0;
     
     selectedFiles.forEach(file => {
-      if (file.size > 50 * 1024 * 1024) {
-        setUploadStatus(`偵測到大型檔案: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)，解析可能需要較長時間。`);
+      if (file.size > MAX_FILE_SIZE) {
+        setErrorMessage(`「${file.name}」體積超過 API 單次傳輸限制 (50MB)。請將您的超大型 PDF 拆分為數個 45MB 以下的小檔案再分別上傳，系統將自動進行「教材融合」。`);
+        setIsReadingFile(false);
+        return;
       }
 
       const reader = new FileReader();
@@ -50,8 +58,18 @@ export const NoteUploader: React.FC<NoteUploaderProps> = ({ onNotesSubmit, isLoa
             if (prev.some(f => f.fileName === newNote.fileName)) return prev;
             return [...prev, newNote];
         });
+        
+        processedCount++;
+        if (processedCount === selectedFiles.length) {
+          setIsReadingFile(false);
+        }
       };
       
+      reader.onerror = () => {
+        setIsReadingFile(false);
+        setErrorMessage(`讀取錯誤: ${file.name}`);
+      };
+
       if (file.type === 'application/pdf') {
         reader.readAsDataURL(file); 
       } else {
@@ -63,67 +81,96 @@ export const NoteUploader: React.FC<NoteUploaderProps> = ({ onNotesSubmit, isLoa
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const payload: NoteData = [...files];
-    if (text.trim()) payload.push({ type: 'text', content: text, mimeType: 'text/plain', fileName: '補充說明' });
-    onNotesSubmit(payload);
+    if (isLoading || isReadingFile) return;
+    onNotesSubmit([...files]);
   };
 
   return (
     <div className="w-full font-mono text-sm">
-      <div className="mb-6 p-4 bg-cyan-950/20 border border-cyan-800/50 rounded flex items-start gap-4">
-        <Cloud className="text-cyan-400 mt-1 flex-shrink-0" size={18} />
-        <div>
-          <p className="text-cyan-400 font-bold mb-1 tracking-tighter">雲端題庫已連結</p>
-          <p className="text-slate-500 text-[10px] break-all">ID: {DRIVE_FOLDER_ID}</p>
+      <div className="mb-6 flex flex-col gap-3">
+        <div className="p-4 bg-cyan-950/20 border border-cyan-800/50 rounded flex items-start gap-4 shadow-inner">
+          <Cloud className="text-cyan-400 mt-1 flex-shrink-0" size={18} />
+          <div>
+            <p className="text-cyan-400 font-bold mb-1 tracking-tight uppercase text-[10px]">雲端存取 [CONNECTED]</p>
+            <p className="text-slate-500 text-[9px] font-mono opacity-60">DRIVE_FOLDER: {DRIVE_FOLDER_ID}</p>
+          </div>
+        </div>
+        
+        <div className="p-4 bg-orange-950/10 border border-orange-500/30 rounded flex items-start gap-4">
+          <BookOpen className="text-orange-500 mt-1 flex-shrink-0" size={18} />
+          <div>
+            <p className="text-orange-500 font-bold mb-1 tracking-tight uppercase text-[10px]">100MB+ 大型教材處理指引</p>
+            <p className="text-slate-400 text-[9px] leading-relaxed">
+              因技術限制，單個檔案需小於 50MB。若您的教材為 100MB，請拆分為「Part 1.pdf」與「Part 2.pdf」後一併在此上傳，系統會將它們視為一個完整個體。
+            </p>
+          </div>
         </div>
       </div>
 
       <form onSubmit={handleSubmit}>
-        {uploadStatus && (
-             <div className="mb-6 p-4 bg-orange-900/20 border border-orange-500/50 text-orange-400 flex items-center gap-3 text-xs">
-                <AlertCircle size={16} />
-                {uploadStatus}
+        {errorMessage && (
+             <div className="mb-6 p-4 bg-red-950/40 border border-red-500/50 text-red-400 text-[11px] rounded flex items-start gap-3">
+                <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
+                <span className="leading-relaxed font-bold uppercase">{errorMessage}</span>
             </div>
         )}
 
         <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4 text-slate-300">
-                <Database size={18} className="text-orange-500" />
-                <h3 className="font-bold uppercase tracking-tighter">本地教材部署 ({files.length}/{MAX_FILES})</h3>
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3 text-slate-100">
+                    <Database size={18} className="text-orange-500" />
+                    <h3 className="font-bold uppercase tracking-tighter text-sm">教材部署分片 ({files.length}/{MAX_FILES})</h3>
+                </div>
+                {isReadingFile && (
+                  <div className="flex items-center gap-2 text-orange-400 text-[10px] font-bold animate-pulse">
+                    <Loader2 size={12} className="animate-spin" />
+                    BUFFERING_DATA...
+                  </div>
+                )}
             </div>
-            <div className="space-y-3">
+            
+            <div className="space-y-2">
               {files.map((file, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-slate-900 border border-slate-800 group transition-all">
+                  <div key={idx} className="flex items-center justify-between p-3 bg-slate-900 border border-slate-800 shadow-md group hover:border-slate-600 transition-colors">
                       <div className="flex items-center gap-3 overflow-hidden">
-                          <FileIcon size={16} className="text-orange-500" />
-                          <span className="text-slate-300 truncate text-xs">{file.fileName}</span>
+                          <FileIcon size={16} className="text-orange-500 flex-shrink-0" />
+                          <span className="text-slate-300 truncate text-[11px] font-mono">{file.fileName}</span>
                       </div>
-                      <button type="button" onClick={() => setFiles(f => f.filter((_, i) => i !== idx))} className="text-slate-600 hover:text-red-500"><Trash2 size={16} /></button>
+                      <button 
+                        type="button" 
+                        onClick={() => setFiles(f => f.filter((_, i) => i !== idx))} 
+                        className="text-slate-600 hover:text-red-500 p-1.5 transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                   </div>
               ))}
+              
               {files.length < MAX_FILES && (
-                <div className="relative border-2 border-dashed border-slate-800 p-8 flex flex-col items-center justify-center hover:bg-orange-500/5 hover:border-orange-500/50 transition-all cursor-pointer">
-                    <input type="file" accept=".pdf" multiple onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
-                    <Plus size={20} className="text-slate-600 mb-2" />
-                    <span className="text-slate-500 uppercase tracking-widest text-[10px]">選取 PDF (支援 100MB+ 大型檔案)</span>
+                <div className={`relative border-2 border-dashed p-10 flex flex-col items-center justify-center transition-all cursor-pointer rounded-lg ${isReadingFile ? 'border-slate-800 pointer-events-none' : 'border-slate-800 hover:border-orange-500/30 hover:bg-orange-500/5'}`}>
+                    <input type="file" accept=".pdf" multiple onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer" disabled={isReadingFile} />
+                    {isReadingFile ? <Loader2 size={24} className="text-orange-500 animate-spin mb-3" /> : <Plus size={24} className="text-slate-600 mb-3" />}
+                    <span className="text-slate-600 uppercase tracking-widest text-[9px] font-bold">點擊上傳教材分片 (Max 45MB/file)</span>
                 </div>
               )}
             </div>
         </div>
 
-        <div className="mb-8">
-            <label className="block font-bold text-slate-300 mb-4 uppercase tracking-tighter">自定義測驗邏輯 / 關鍵點補充</label>
-            <textarea
-                className="w-full h-24 p-4 bg-slate-900 border border-slate-800 text-slate-200 focus:border-orange-500 outline-none resize-none"
-                placeholder="在此輸入您想特別加強的考點或對助教的額外指令..."
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-            />
+        <div className="flex flex-col gap-4">
+          <Button 
+            type="submit" 
+            disabled={(files.length === 0 && !text.trim()) || isLoading || isReadingFile} 
+            className="w-full py-5 text-base border-b-8 shadow-xl"
+            isLoading={isLoading}
+          >
+            確認部署並同步雲端題庫
+          </Button>
+          
+          <div className="flex items-center gap-2 justify-center text-[9px] text-slate-600 uppercase font-mono tracking-widest">
+             <Info size={10} />
+             Multishard processing may take up to 2 minutes
+          </div>
         </div>
-
-        <Button type="submit" disabled={(files.length === 0 && !text.trim()) || isLoading} className="w-full">
-          確認部署並同步雲端題庫
-        </Button>
       </form>
     </div>
   );
