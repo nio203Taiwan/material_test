@@ -1,90 +1,36 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="zh-TW" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MatSci Industrial TA</title>
+    <title>材料科學專業助教 - 考試準備模式</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;500&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <script>
-      // Ensure process environment is defined before any modules load
       window.process = { env: { API_KEY: "" } };
-      
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            fontFamily: {
-              mono: ['Fira Code', 'monospace'],
-              sans: ['Inter', 'sans-serif'],
-            },
-            colors: {
-              industrial: {
-                charcoal: '#0d0f11',
-                metal: '#212529',
-                rust: '#c2410c',
-                blueprint: '#0891B2',
-              }
-            }
-          }
-        }
-      }
     </script>
     <style>
-      body {
-        background-color: #0d0f11;
+      body { background-color: #0d0f11; margin: 0; overflow-x: hidden; }
+      .caution-stripe {
+        background: repeating-linear-gradient(45deg, #c2410c, #c2410c 10px, #0d0f11 10px, #0d0f11 20px);
+      }
+      .industrial-bg {
         background-image: 
           linear-gradient(rgba(33, 37, 41, 0.3) 1px, transparent 1px),
           linear-gradient(90deg, rgba(33, 37, 41, 0.3) 1px, transparent 1px);
         background-size: 30px 30px;
-        margin: 0;
-        overflow-x: hidden;
-      }
-      .industrial-border {
-        border: 1px solid #334155;
-      }
-      .caution-stripe {
-        background: repeating-linear-gradient(
-          45deg,
-          #c2410c,
-          #c2410c 10px,
-          #0d0f11 10px,
-          #0d0f11 20px
-        );
-      }
-      .custom-scrollbar::-webkit-scrollbar {
-        width: 6px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-track {
-        background: #0d0f11;
-      }
-      .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: #334155;
-        border-radius: 3px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: #0891B2;
       }
     </style>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
-    <script type="importmap">
-    {
-      "imports": {
-        "react": "https://esm.sh/react@18.3.1",
-        "react-dom": "https://esm.sh/react-dom@18.3.1",
-        "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
-        "react/": "https://esm.sh/react@18.3.1/",
-        "react-dom/": "https://esm.sh/react-dom@18.3.1/",
-        "@google/genai": "https://esm.sh/@google/genai@0.1.1",
-        "lucide-react": "https://esm.sh/lucide-react@0.294.0?deps=react@18.3.1",
-        "remark-math": "https://esm.sh/remark-math@6.0.0",
-        "react-markdown": "https://esm.sh/react-markdown@9.0.1?deps=react@18.3.1",
-        "rehype-katex": "https://esm.sh/rehype-katex@7.0.0?deps=react@18.3.1"
-      }
-    }
-    </script>
-  </head>
-  <body class="text-slate-200">
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/"
+  }
+}
+</script>
+</head>
+  <body class="text-slate-200 industrial-bg">
     <div id="root"></div>
   </body>
 </html>

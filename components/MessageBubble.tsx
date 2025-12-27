@@ -1,7 +1,7 @@
-import React from 'react';
-import { Message } from '../types';
-import { MarkdownRenderer } from './MarkdownRenderer';
-import { Cpu, User } from 'lucide-react';
+import React from 'https://esm.sh/react@18.3.1';
+import { Message } from '../types.ts';
+import { MarkdownRenderer } from './MarkdownRenderer.tsx';
+import { Cpu, User } from 'https://esm.sh/lucide-react@0.294.0?deps=react@18.3.1';
 
 interface MessageBubbleProps {
   message: Message;
@@ -26,13 +26,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
             <div className={`p-5 shadow-2xl border-l-4 ${
                 isUser 
                 ? 'bg-slate-800/80 border-cyan-500 text-cyan-50' 
-                : 'bg-slate-800/40 border-industrial-rust text-slate-200'
+                : 'bg-slate-800/40 border-l-[#c2410c] text-slate-200'
             }`}>
                 <div className="mb-2 flex items-center gap-2 opacity-50">
-                   <span className="text-[9px] font-mono uppercase tracking-tighter">
+                   <span className="text-[9px] font-mono uppercase tracking-tighter text-slate-400">
                      {isUser ? 'TRANSMISSION_USER' : 'TRANSMISSION_MATSCI_CORE'}
                    </span>
-                   <div className="h-px flex-1 bg-current opacity-20"></div>
+                   <div className="h-px flex-1 bg-slate-700 opacity-20"></div>
                 </div>
                 
                 {isUser ? (

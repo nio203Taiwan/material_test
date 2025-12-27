@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Button } from './Button';
-import { FileText, File as FileIcon, Trash2, Plus, AlertCircle, Save, Database } from 'lucide-react';
-import { NoteData, NoteItem } from '../types';
+import React, { useState, useEffect } from 'https://esm.sh/react@18.3.1';
+import { Button } from './Button.tsx';
+import { FileText, File as FileIcon, Trash2, Plus, AlertCircle, Save, Database } from 'https://esm.sh/lucide-react@0.294.0?deps=react@18.3.1';
+import { NoteData, NoteItem } from '../types.ts';
 
 interface NoteUploaderProps {
   onNotesSubmit: (data: NoteData) => void;
@@ -100,7 +100,7 @@ export const NoteUploader: React.FC<NoteUploaderProps> = ({ onNotesSubmit, isLoa
             />
         </div>
 
-        <Button type="submit" disabled={files.length === 0 && !text.trim() || isLoading} className="w-full">
+        <Button type="submit" disabled={(files.length === 0 && !text.trim()) || isLoading} className="w-full">
           COMMIT TO CORE
         </Button>
       </form>

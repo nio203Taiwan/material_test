@@ -1,37 +1,29 @@
-import { GoogleGenAI, Chat, Part } from "@google/genai";
-import { NoteData } from "../types";
+import { GoogleGenAI } from "https://esm.sh/@google/genai@0.12.0";
+import { NoteData } from "../types.ts";
 
 const SYSTEM_INSTRUCTION = `
-你是一位專業嚴格但循循善誘的「材料科學研究所入學考試專業助教」。你的任務是協助使用者通過高難度的研究所筆試。你擁有深厚的材料科學知識（涵蓋熱力學、動力學、晶體結構、相變、機械性質等）。
+你是一位專業嚴格但循循善誘的「材料科學研究所入學考試專業助教」。
+你具備深厚的材料熱力學、動力學、相圖、晶體結構與機械性質等知識儲備。
 
-你的運作核心是基於使用者提供的「應考筆記」內容來進行模擬考題訓練。
+核心行為準則：
+1. **嚴謹性**：如果使用者的回答在理論或邏輯上有微小瑕疵，請毫不留情地指出，並要求使用者修正。
+2. **循循善誘**：不要直接給出完整解答。當使用者卡住時，提供提示或基礎公式，引導他們推導出結果。
+3. **格式化**：使用 Markdown 輸出。複雜公式請使用 LaTeX 格式。
+4. **工業風語氣**：使用「系統指令」、「模組損壞」、「核心解析中」等語彙來回應。
 
-### 1. 互動模式 (Loop)
-你必須與使用者進行「一問一答」的模擬測驗。
-- **步驟 A (出題)：** 根據目前指定的「測驗單元」，從筆記中出一道具備研究所考試水準的題目。
-- **步驟 B (等待)：** 出題後，**請勿直接提供答案**。你需要暫停，等待使用者輸入他的「答題方向」或「解題思路」。
-- **步驟 C (回饋與教學)：** 當使用者回答後，你需要根據下方的【解題策略與回饋架構】給予完整回饋。
-
-### 2. 解題策略與回饋架構
-1. 【題目分析】：拆解關鍵字與考點。
-2. 【關鍵概念】：列出物理意義、公式或理論。
-3. 【最佳解答】：提供標準、邏輯嚴謹的解答。
-4. 【延伸追問】：提出進階相關問題。
-
-### 3. 重要限制
-- 優先參考筆記，若無則補充並註明。
-- 語氣專業嚴肅。
-- LaTeX 使用：數學公式必須使用 LaTeX，例如 $E = mc^2$。
-- **單元專注**：如果目前指定了特定單元，請確保題目與討論集中在該領域。
+工作流程：
+- 根據上傳的筆記內容出題（一次一題）。
+- 審核答案，給予 0-100 的精確評分。
+- 只有當使用者完全掌握該觀點後，才進入下一個考點。
 `;
 
-let chatSession: Chat | null = null;
+let chatSession: any = null;
 
 export const initializeChat = async (notes: NoteData, initialUnit?: string): Promise<string> => {
-  const apiKey = (window as any).process?.env?.API_KEY || process.env.API_KEY;
+  const apiKey = (window as any).process?.env?.API_KEY || (process as any).env.API_KEY;
   
   if (!apiKey) {
-    throw new Error("找不到 API_KEY 環境變數。請確認專案設定中已正確注入金鑰。");
+    throw new Error("環境變數中缺少 API_KEY。");
   }
 
   try {
@@ -44,12 +36,8 @@ export const initializeChat = async (notes: NoteData, initialUnit?: string): Pro
         },
     });
 
-    const parts: Part[] = [];
-    let fileNames = notes.filter(n => n.type === 'file').map(n => n.fileName || 'Untitled').join(', ');
-    
-    parts.push({ 
-        text: `這是我的應考筆記資料，共包含 ${notes.length} 個部分${fileNames ? ` (檔案: ${fileNames})` : ''}。目前預計優先測試單元為：${initialUnit || '全部單元'}。請開始指導。` 
-    });
+    const parts: any[] = [];
+    parts.push({ text: `筆記載入完成。啟動單元：${initialUnit || '全部章節'}。請根據教材出題並進行評估。` });
 
     for (const note of notes) {
         if (note.type === 'file') {
@@ -57,25 +45,25 @@ export const initializeChat = async (notes: NoteData, initialUnit?: string): Pro
                 inlineData: { mimeType: note.mimeType, data: note.content }
             });
         } else {
-            parts.push({ text: `\n[筆記文字補充]:\n${note.content}` });
+            parts.push({ text: `\n[筆記文本]:\n${note.content}` });
         }
     }
   
-    const response = await chatSession.sendMessage({ message: { parts } });
-    return response.text || "助教已成功加載，隨時可以開始。";
+    const result = await chatSession.sendMessage({ message: { parts } });
+    const text = typeof result.text === 'string' ? result.text : String(result.text || "");
+    return text || "助教已就緒，請開始作答。";
   } catch (error: any) {
-    console.error("Gemini Init Error:", error);
-    throw new Error(`系統初始化失敗: ${error.message || '未知錯誤'}`);
+    console.error("Gemini Error:", error);
+    throw new Error(`初始化失敗: ${error.message}`);
   }
 };
 
 export const sendMessage = async (message: string): Promise<string> => {
-  if (!chatSession) throw new Error("通訊模組尚未初始化");
+  if (!chatSession) throw new Error("通訊模組未初始化");
   try {
     const response = await chatSession.sendMessage({ message });
-    return response.text || "";
-  } catch (error: any) {
-    console.error("Gemini Send Error:", error);
-    throw new Error(`訊息傳送失敗: ${error.message}`);
+    return typeof response.text === 'string' ? response.text : String(response.text || "");
+  } catch (err: any) {
+    return `[COMM_ERROR]: 傳輸失敗 - ${err.message}`;
   }
 };
