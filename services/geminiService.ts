@@ -18,7 +18,7 @@ const SYSTEM_INSTRUCTION = `
    - **[正確解析]**：必須立即給出詳盡的學理分析、公式推導（使用 LaTeX）。
    - **[類似題驗證]**：針對同一概念，立即從題庫或自行生成「類似題」。
    - **限制**：使用者必須答對類似題，你才被允許進入下一個考點。
-4. **語言風格**：專業、嚴肅、使用繁體中文。公式必須以 LaTeX 呈現 (如：$n\lambda = 2d\sin\theta$)。
+4. **語言風格**：專業、嚴肅、使用繁體中文。公式必須以 LaTeX 呈現 (如：$n\\lambda = 2d\\sin\\theta$)。
 
 請注意：對於超大型 PDF，請專注於提取其中的關鍵術語、圖表說明與章節架構。
 `;
@@ -26,12 +26,15 @@ const SYSTEM_INSTRUCTION = `
 let chatSession: any = null;
 
 export const initializeChat = async (notes: NoteData, initialUnit?: string): Promise<string> => {
-  if (!process.env.API_KEY) {
-    throw new Error("系統未檢測到有效 API_KEY。請確認配置。");
+  // 優先從環境變數獲取，若無則檢查全域物件
+  const apiKey = (typeof process !== 'undefined' && process.env?.API_KEY) || (window as any).process?.env?.API_KEY;
+
+  if (!apiKey) {
+    throw new Error("系統未檢測到有效 API_KEY。請確認環境變數配置或稍後再試。");
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey });
     
     chatSession = ai.chats.create({
       model: 'gemini-3-flash-preview',
@@ -42,7 +45,6 @@ export const initializeChat = async (notes: NoteData, initialUnit?: string): Pro
     });
 
     const parts: any[] = [];
-    // 強化初始指令，要求立即出題
     parts.push({ text: `[系統連結成功]: 已掛載雲端題庫 (ID: ${DRIVE_FOLDER_ID})。請根據當前單元「${initialUnit || '全章節'}」以及上傳的教材內容，直接開始第一場模擬測驗，請出第一道題目。` });
 
     for (const note of notes) {
@@ -56,7 +58,7 @@ export const initializeChat = async (notes: NoteData, initialUnit?: string): Pro
     }
   
     const result = await chatSession.sendMessage({ message: parts });
-    return result.text || "助教已準備就緒。請輸入「開始測驗」以從雲端題庫抽取題目。";
+    return result.text || "助教已準備就緒。請點擊部署教材開始測驗。";
   } catch (error: any) {
     console.error("Gemini Error:", error);
     if (error.message?.includes("too large")) {

@@ -3,10 +3,18 @@ import { Message, NoteData } from './types.ts';
 import { NoteUploader } from './components/NoteUploader.tsx';
 import { MessageBubble } from './components/MessageBubble.tsx';
 import { Button } from './components/Button.tsx';
-import * as Lucide from 'lucide-react';
+import { 
+  Send, 
+  Settings, 
+  X, 
+  AlertTriangle, 
+  Cpu, 
+  Terminal, 
+  Box, 
+  Link2, 
+  Cloud 
+} from 'lucide-react';
 import { initializeChat, sendMessage } from './services/geminiService.ts';
-
-const { Send, Settings, X, AlertTriangle, Cpu, Terminal, Book, Box, Link2, Cloud } = Lucide;
 
 const STORAGE_KEY = 'matsci_ta_notes';
 const DRIVE_ID = "1HIK1rmsqBh0vmHf-g8TcwMLxzJ2Y-B_o";
