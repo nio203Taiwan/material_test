@@ -18,8 +18,8 @@ import {
   ShieldCheck,
   Zap,
   Lock,
-  Unlock,
-  CreditCard
+  CreditCard,
+  Key
 } from 'lucide-react';
 import { initializeChat, sendMessage } from './services/geminiService.ts';
 
@@ -37,21 +37,14 @@ const UNITS = [
 const DEPLOYMENT_STAGES = [
     "STAGE_01: 正在封裝二進位教材分片...",
     "STAGE_02: 正在計算大規模晶格缺陷場...",
-    "STAGE_03: 建立付費級別加密連線...",
+    "STAGE_03: 建立加密通訊連線...",
     "STAGE_04: 正在掛載高階熱力學引擎...",
     "STAGE_05: 同步大型考古題題庫 (ID: 1HIK1rm...)",
-    "STAGE_06: 多軌數據注入 Gemini 3.0 Pro Core...",
+    "STAGE_06: 多軌數據注入 Gemini 3.0 Core...",
     "STAGE_07: 校準專家級助教語氣...",
     "STAGE_08: 正在生成初始考點地圖...",
     "STAGE_09: 教材核心融合完成。系統啟動。"
 ];
-
-// Fix: Use the established 'AIStudio' type to resolve the subsequent property declaration error.
-declare global {
-  interface Window {
-    aistudio?: AIStudio;
-  }
-}
 
 const App: React.FC = () => {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
@@ -69,18 +62,23 @@ const App: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
 
+  // 安全檢查 window.aistudio 是否存在
+  const getAIStudio = () => (window as any).aistudio;
+
   useEffect(() => {
     const checkKey = async () => {
       try {
-        if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
-          const selected = await window.aistudio.hasSelectedApiKey();
+        const aistudio = getAIStudio();
+        if (aistudio && typeof aistudio.hasSelectedApiKey === 'function') {
+          const selected = await aistudio.hasSelectedApiKey();
           setHasKey(selected);
         } else {
-          // If running on Vercel or other environments, check process.env.API_KEY.
-          setHasKey(!!process.env.API_KEY);
+          // 如果不在 AI Studio 環境（例如 Vercel），直接檢查 process.env.API_KEY
+          const envKey = process.env.API_KEY;
+          setHasKey(!!envKey && envKey.length > 0);
         }
       } catch (err) {
-        console.warn("API Key check failed, falling back to environment variable.", err);
+        console.warn("API Key 偵測失敗:", err);
         setHasKey(!!process.env.API_KEY);
       } finally {
         setIsInitializing(false);
@@ -90,15 +88,16 @@ const App: React.FC = () => {
   }, []);
 
   const handleOpenKeySelection = async () => {
-    if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+    const aistudio = getAIStudio();
+    if (aistudio && typeof aistudio.openSelectKey === 'function') {
       try {
-        await window.aistudio.openSelectKey();
+        await aistudio.openSelectKey();
         setHasKey(true);
       } catch (err) {
-        console.error("Failed to open key selection", err);
+        console.error("選取金鑰失敗:", err);
       }
     } else {
-      setError("當前環境不支援主動選取金鑰。請確保已在伺服器端或 Vercel 環境變數中設定 API_KEY。");
+      setError("當前環境不支援主動選取金鑰。若您已部署至 Vercel，請在環境變數中設定 API_KEY。");
     }
   };
 
@@ -117,6 +116,12 @@ const App: React.FC = () => {
   };
 
   const handleStartSession = (noteData: NoteData) => {
+    if (!hasKey) {
+      setError("系統核心未偵測到 API 金鑰。請先在 Vercel 設定 API_KEY 環境變數或選取金鑰。");
+      setIsAdminOpen(true);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     setProgress(5);
@@ -134,9 +139,6 @@ const App: React.FC = () => {
       }, 700);
 
       try {
-        const textNotes = noteData.filter(n => n.type === 'text');
-        localStorage.setItem(STORAGE_KEY_TEXT, JSON.stringify(textNotes));
-
         const initialResponse = await initializeChat(noteData, selectedUnit.desc);
         
         clearInterval(logInterval);
@@ -155,13 +157,13 @@ const App: React.FC = () => {
 
       } catch (err: any) {
         clearInterval(logInterval);
-        let msg = err.message || "初始化失敗";
-        if (msg.includes("limit") || msg.includes("400")) {
-          msg = "單個檔案分片仍超過 50MB。請將您的 100MB 檔案分割為 2~3 個較小的 PDF 檔案再分別上傳，系統會自動融合。";
+        let msg = err.message || "通訊失敗";
+        if (msg.includes("API key")) {
+          msg = "API Key 驗證失敗。請確認 Vercel 中的 API_KEY 是否正確。";
         }
         setError(msg);
         setIsLoading(false);
-        setStatusText('中斷');
+        setStatusText('部署異常');
       }
     }, 200);
   };
@@ -185,6 +187,15 @@ const App: React.FC = () => {
     }
   };
 
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen bg-[#0d1117] flex flex-col items-center justify-center p-6">
+        <Loader2 className="text-orange-500 animate-spin mb-4" size={48} />
+        <p className="text-slate-500 font-mono text-xs uppercase tracking-[0.3em]">核心加載中...</p>
+      </div>
+    );
+  }
+
   return (
     <div className={`min-h-screen flex flex-col font-sans text-slate-200 selection:bg-orange-500/40 ${hasKey ? 'bg-[#0a0c10]' : 'bg-[#0d1117]'}`}>
       <header className={`border-b sticky top-0 z-40 shadow-2xl transition-colors duration-500 ${hasKey ? 'bg-black border-yellow-600/30' : 'bg-[#0d1117] border-slate-800'}`}>
@@ -201,7 +212,7 @@ const App: React.FC = () => {
               <div className="flex items-center gap-3">
                 <span className={`w-2 h-2 rounded-full animate-pulse ${hasKey ? 'bg-yellow-400' : 'bg-emerald-500'}`}></span>
                 <span className="text-[10px] text-slate-500 font-mono tracking-widest uppercase">
-                  {hasKey ? 'PAID_TIER_ACTIVE' : 'FREE_CORE_ONLINE'}
+                  {hasKey ? 'VERCEL_PRO_MODE' : 'CORE_OFFLINE'}
                 </span>
               </div>
             </div>
@@ -209,171 +220,170 @@ const App: React.FC = () => {
 
           <div className="flex items-center gap-4">
             {!hasKey && (
-              <button 
-                onClick={handleOpenKeySelection}
-                className="hidden md:flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded text-[10px] font-mono tracking-widest text-slate-400 transition-all border border-slate-700"
-              >
-                <Lock size={14} /> 啟用付費金鑰 (支援大檔案)
-              </button>
+              <div className="hidden md:flex items-center gap-2 text-red-500 px-3 py-1 border border-red-500/30 rounded bg-red-500/5 animate-pulse">
+                <AlertTriangle size={14} />
+                <span className="text-[10px] font-mono font-bold">API_KEY_MISSING</span>
+              </div>
             )}
             <button 
-              onClick={toggleAdmin}
-              className="p-2 text-slate-400 hover:text-white transition-colors"
+              onClick={toggleAdmin} 
+              className={`p-3 transition-all border rounded shadow-inner ${hasKey ? 'text-yellow-500 bg-yellow-900/20 border-yellow-700/50' : 'text-slate-400 border-slate-800 hover:bg-slate-800'}`}
             >
-              <Settings size={20} />
+              <Settings size={22} />
             </button>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 max-w-6xl mx-auto w-full p-6 overflow-hidden flex flex-col">
-        {messages.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center space-y-8 animate-in fade-in zoom-in duration-700">
-             <div className="relative">
-                <div className="absolute inset-0 bg-orange-500/20 blur-3xl rounded-full"></div>
-                <div className="relative bg-slate-900 border-2 border-slate-800 p-8 shadow-2xl">
-                  <Cpu size={48} className="text-[#c2410c] mb-4" />
-                  <h2 className="text-2xl font-mono font-bold tracking-tighter uppercase mb-2">待命系統 [READY]</h2>
-                  <p className="text-slate-500 text-sm max-w-xs font-mono">
-                    請點擊右上方部署按鈕或設定教材，以啟動材料科學專用 AI 核心。
-                  </p>
-                </div>
-             </div>
-             <Button onClick={toggleAdmin} className="group">
-                <Settings size={18} className="group-hover:rotate-90 transition-transform" />
-                進入部署終端
-             </Button>
-          </div>
-        ) : (
-          <div className="flex-1 overflow-y-auto space-y-6 pb-20 pr-2 custom-scrollbar">
-            {messages.map((msg, i) => (
-              <MessageBubble key={i} message={msg} />
-            ))}
-            <div ref={messagesEndRef} />
+      <main className="flex-1 w-full max-w-6xl mx-auto flex flex-col bg-[#0d1117]/80 border-x border-slate-800 shadow-2xl overflow-hidden relative">
+        {error && (
+          <div className="mx-6 mt-6 p-5 bg-red-950/40 border-l-4 border-red-600 text-red-400 text-xs flex items-center gap-4 font-mono z-20 shadow-2xl">
+            <AlertTriangle size={20} className="flex-shrink-0" />
+            <div className="flex-1 font-bold leading-relaxed">{error}</div>
+            <button onClick={() => setError(null)} className="p-1 hover:bg-red-900/40 rounded transition-colors"><X size={18} /></button>
           </div>
         )}
 
-        <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-[#0a0c10] via-[#0a0c10]/90 to-transparent">
-          <div className="max-w-4xl mx-auto relative">
-             {error && (
-                <div className="absolute bottom-full left-0 right-0 mb-4 p-3 bg-red-950/80 border border-red-500/50 rounded flex items-center gap-3 text-red-400 text-xs font-mono uppercase animate-in slide-in-from-bottom-2">
-                   <AlertTriangle size={14} />
-                   <span>{error}</span>
-                   <button onClick={() => setError(null)} className="ml-auto hover:text-white"><X size={14} /></button>
-                </div>
-             )}
-             
-             <form onSubmit={handleSendMessage} className="relative group">
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-orange-600 to-cyan-600 rounded-none blur opacity-20 group-focus-within:opacity-40 transition duration-500"></div>
-                <div className="relative flex bg-slate-900 border border-slate-800">
-                  <div className="flex items-center px-4 border-r border-slate-800 text-slate-500">
-                    <Terminal size={16} />
-                  </div>
-                  <input 
-                    type="text"
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    placeholder={isLoading ? "正在計算學理分析..." : "輸入材料科學問題..."}
-                    className="flex-1 bg-transparent px-6 py-4 outline-none font-mono text-sm placeholder:text-slate-600"
-                    disabled={isLoading || messages.length === 0}
-                  />
-                  <button 
-                    type="submit"
-                    disabled={isLoading || !inputText.trim() || messages.length === 0}
-                    className="px-8 bg-slate-800 border-l border-slate-700 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-slate-800 transition-colors text-cyan-400"
-                  >
-                    {isLoading ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} />}
-                  </button>
-                </div>
-             </form>
+        {messages.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
+            <div className={`max-w-md w-full p-12 rounded shadow-2xl relative group border transition-all duration-500 ${hasKey ? 'bg-black border-yellow-900/50' : 'bg-slate-900 border-slate-800'}`}>
+              {/* Fix: Merged duplicate className attributes on Cloud component */}
+              <Cloud className={`${hasKey ? 'text-yellow-500' : 'text-orange-500'} mx-auto mb-6`} size={56} />
+              <h2 className="text-2xl font-mono font-bold text-white mb-4 uppercase tracking-tighter">部署 100MB+ 教材核心</h2>
+              <p className="text-slate-500 mb-10 text-sm leading-relaxed font-sans">
+                {hasKey 
+                  ? "系統已準備就緒，請掛載您的材料科學教材以開始模擬考。" 
+                  : "偵測到 Vercel 部署環境變數缺失。請點擊配置中心按鈕進行設定診斷。"}
+              </p>
+              <Button onClick={toggleAdmin} className={hasKey ? 'bg-yellow-600 border-yellow-900 hover:bg-yellow-500' : ''}>
+                {hasKey ? "進入配置與同步" : "查看系統配置"}
+              </Button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="flex flex-col h-full overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-4 md:p-10 space-y-12 scroll-smooth custom-scrollbar">
+              {messages.map((msg, idx) => <MessageBubble key={idx} message={msg} />)}
+              {isLoading && (
+                 <div className="flex justify-start">
+                    <div className={`border-l-4 px-8 py-5 flex items-center gap-5 shadow-2xl ${hasKey ? 'bg-black border-yellow-600' : 'bg-slate-900 border-orange-600'}`}>
+                        <Activity className={hasKey ? 'text-yellow-500 animate-pulse' : 'text-orange-500 animate-pulse'} size={20} />
+                        <span className={`font-mono text-xs uppercase tracking-widest font-bold ${hasKey ? 'text-yellow-500' : 'text-orange-400'}`}>正在演算高級學理...</span>
+                    </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            <div className="p-8 bg-black/60 border-t border-slate-800 backdrop-blur-lg">
+                <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto flex gap-4">
+                    <textarea
+                        className="flex-1 p-5 bg-black border border-slate-700 text-slate-100 focus:border-orange-500 focus:ring-1 focus:ring-orange-500/50 outline-none resize-none font-mono text-sm shadow-inner"
+                        placeholder="輸入對教材內容的提問..."
+                        rows={1}
+                        value={inputText}
+                        onChange={(e) => setInputText(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
+                    />
+                    <button 
+                      type="submit" 
+                      disabled={!inputText.trim() || isLoading} 
+                      className={`px-10 text-white font-mono font-bold uppercase text-xs tracking-widest transition-all disabled:opacity-30 border-b-4 active:border-b-0 active:translate-y-1 shadow-lg ${hasKey ? 'bg-yellow-700 hover:bg-yellow-600 border-yellow-900' : 'bg-orange-600 hover:bg-orange-500 border-orange-800'}`}
+                    >
+                        <Send size={18} />
+                    </button>
+                </form>
+            </div>
+          </div>
+        )}
       </main>
 
-      {/* Deployment Modal */}
       {isAdminOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-2xl shadow-2xl my-auto">
-            <div className="flex items-center justify-between p-6 border-b border-slate-800">
-              <div className="flex items-center gap-3">
-                <Box className="text-orange-500" />
-                <h2 className="font-mono font-bold uppercase tracking-tighter">系統部署與教材掛載</h2>
-              </div>
-              <button onClick={toggleAdmin} className="text-slate-500 hover:text-white"><X /></button>
-            </div>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-2xl">
+          <div className={`w-full max-w-3xl max-h-[90vh] overflow-hidden border p-1 shadow-[0_0_120px_rgba(0,0,0,0.6)] flex flex-col rounded-lg ${hasKey ? 'bg-[#0a0c10] border-yellow-700/50' : 'bg-[#0d1117] border-slate-700'}`}>
+            <div className={hasKey ? "h-1 bg-yellow-600" : "caution-stripe"}></div>
             
-            <div className="p-8">
-              {!isLoading ? (
-                <>
-                  <div className="mb-8">
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">選擇目標單元</label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      {UNITS.map(unit => (
-                        <button
-                          key={unit.id}
-                          onClick={() => setSelectedUnit(unit)}
-                          className={`p-3 border text-left transition-all ${
-                            selectedUnit.id === unit.id 
-                            ? 'bg-orange-500/10 border-orange-500 text-orange-400' 
-                            : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-500'
-                          }`}
-                        >
-                          <div className="font-bold text-[11px] mb-1">{unit.label}</div>
-                          <div className="text-[9px] opacity-60 leading-tight">{unit.desc}</div>
-                        </button>
-                      ))}
+            <div className="p-8 md:p-10 flex-1 overflow-y-auto custom-scrollbar">
+              <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-800">
+                <div className="flex items-center gap-4">
+                  <div className={`p-3 rounded-sm ${isLoading ? (hasKey ? 'bg-yellow-600' : 'bg-orange-600') + ' animate-pulse' : 'bg-slate-800'}`}>
+                    {isLoading ? <Zap size={24} className="text-white" /> : <Cpu size={24} className="text-slate-400" />}
+                  </div>
+                  <div>
+                    <h2 className={`text-xl font-mono font-bold uppercase tracking-tighter ${hasKey ? 'text-yellow-500' : 'text-white'}`}>
+                      {isLoading ? 'CORE_ACTIVE_DEPLOY' : '教材配置中心'}
+                    </h2>
+                    <div className="flex items-center gap-3 mt-1">
+                       <span className={`text-[10px] font-mono tracking-widest uppercase ${isLoading ? 'text-orange-500' : 'text-emerald-500'}`}>{statusText}</span>
                     </div>
                   </div>
+                </div>
+                {!isLoading && (
+                  <button onClick={toggleAdmin} className="text-slate-500 hover:text-white transition-colors p-2">
+                    <X size={28} />
+                  </button>
+                )}
+              </div>
 
-                  <NoteUploader onNotesSubmit={handleStartSession} isLoading={isLoading} />
-                </>
-              ) : (
-                <div className="py-10">
-                   <div className="mb-8 space-y-2">
-                      <div className="flex justify-between text-[10px] font-mono text-cyan-400 mb-1">
-                        <span>DEPLOYMENT_PROGRESS</span>
-                        <span>{Math.round(progress)}%</span>
-                      </div>
-                      <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-cyan-500 transition-all duration-300 shadow-[0_0_10px_rgba(6,182,212,0.5)]"
-                          style={{ width: `${progress}%` }}
-                        ></div>
-                      </div>
-                   </div>
+              {!hasKey && !isLoading && (
+                 <div className="mb-8 p-6 bg-red-950/20 border border-red-600/30 rounded-lg">
+                    <div className="flex items-start gap-4 text-red-500 mb-4">
+                       <Key size={28} className="flex-shrink-0 mt-1" />
+                       <div className="text-left">
+                          <p className="font-bold text-sm uppercase">API 金鑰配置異常 [CONFIG_ERROR]</p>
+                          <p className="text-[10px] text-slate-400 font-sans mt-1 leading-relaxed">
+                             在 Vercel 部署環境中，您必須在專案設定中手動加入名為 <code className="bg-red-900/40 px-1 rounded text-red-200">API_KEY</code> 的環境變數，系統才能連結 Gemini 3 Pro 核心。
+                          </p>
+                       </div>
+                    </div>
+                    {getAIStudio() && (
+                      <button 
+                        onClick={handleOpenKeySelection}
+                        className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 px-6 rounded text-xs uppercase transition-all border border-slate-700"
+                      >
+                        使用 AI Studio 金鑰選取器
+                      </button>
+                    )}
+                 </div>
+              )}
 
-                   <div className="bg-black border border-slate-800 p-6 font-mono text-[10px] h-48 overflow-y-auto space-y-1 text-slate-400">
+              {isLoading ? (
+                <div className="flex flex-col h-[400px]">
+                  <div className="flex items-center justify-between mb-6 px-1">
+                    <div className="flex items-center gap-2">
+                      <Activity size={14} className={hasKey ? 'text-yellow-500' : 'text-orange-500'} />
+                      <span className={`text-[11px] font-mono font-bold uppercase tracking-widest ${hasKey ? 'text-yellow-500' : 'text-orange-500'}`}>Processing</span>
+                    </div>
+                    <span className="text-slate-400 font-mono text-sm font-bold">{Math.floor(progress)}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-slate-950 border border-slate-800 mb-10 overflow-hidden rounded-full">
+                    <div className={`h-full transition-all duration-700 ${hasKey ? 'bg-yellow-600' : 'bg-orange-600'}`} style={{ width: `${progress}%` }}></div>
+                  </div>
+                  <div className="flex-1 bg-black border border-slate-800 p-6 font-mono text-[10px] overflow-y-auto no-scrollbar space-y-2">
                       {deploymentLogs.map((log, i) => (
-                        <div key={i} className="flex gap-3">
-                           <span className="text-slate-700">[{new Date().toLocaleTimeString()}]</span>
-                           <span className={log.includes('COMPLETE') ? 'text-emerald-500' : ''}>{log}</span>
-                        </div>
+                          <div key={i} className="text-slate-500 flex gap-2">
+                              <span className="opacity-30">[{i}]</span>
+                              <span className={i === deploymentLogs.length - 1 ? (hasKey ? "text-yellow-500" : "text-orange-400") : ""}>{log}</span>
+                          </div>
                       ))}
                       <div ref={logEndRef} />
-                   </div>
-                   
-                   <div className="mt-8 flex flex-col items-center gap-4">
-                      <div className="flex items-center gap-3 text-cyan-400 text-xs font-bold animate-pulse uppercase tracking-widest">
-                         <Loader2 className="animate-spin" size={14} />
-                         {statusText}...
-                      </div>
-                   </div>
+                  </div>
                 </div>
+              ) : (
+                <NoteUploader onNotesSubmit={handleStartSession} isLoading={isLoading} />
               )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Key Info Banner */}
-      {!hasKey && !isAdminOpen && (
-        <div className="bg-orange-950/20 border-t border-orange-900/30 p-2 text-center text-[10px] font-mono text-orange-400/60 uppercase tracking-widest">
-           Notice: Free tier has strict token limits. Upgrading to paid key is recommended for large PDFs.
-        </div>
-      )}
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+      `}</style>
     </div>
   );
 };
 
-// Fix: Add default export as expected by index.tsx.
 export default App;

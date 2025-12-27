@@ -29,9 +29,15 @@ let chatSession: any = null;
  * 以確保獲取最新的 API Key (可能是付費金鑰)。
  */
 export const initializeChat = async (notes: NoteData, initialUnit?: string): Promise<string> => {
+  const apiKey = process.env.API_KEY;
+
+  if (!apiKey || apiKey.trim() === "") {
+    throw new Error("偵測到 API 金鑰缺失。若您正在使用 Vercel，請確認已在專案 Settings -> Environment Variables 中加入 API_KEY。");
+  }
+
   try {
     // CRITICAL: Always use new GoogleGenAI({ apiKey: process.env.API_KEY }) directly right before making a call to ensure current key usage.
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: apiKey });
     
     // Upgraded model to 'gemini-3-pro-preview' as it is recommended for complex STEM tasks requiring advanced reasoning.
     chatSession = ai.chats.create({
@@ -56,19 +62,20 @@ export const initializeChat = async (notes: NoteData, initialUnit?: string): Pro
     }
   
     const result = await chatSession.sendMessage({ message: parts });
-    // result.text is a property, correct usage.
     return result.text || "助教已準備就緒。教材融合完成，請開始測驗。";
   } catch (error: any) {
     console.error("Gemini Init Error:", error);
+    if (error.message?.includes("API key")) {
+        throw new Error("API 金鑰無效。請檢查您的 API_KEY 配置。");
+    }
     throw error;
   }
 };
 
 export const sendMessage = async (message: string): Promise<string> => {
-  if (!chatSession) throw new Error("通訊模組未啟動。");
+  if (!chatSession) throw new Error("通訊模組未啟動。請重新部署教材核心。");
   try {
     const response = await chatSession.sendMessage({ message });
-    // response.text is a property, correct usage.
     return response.text || "[系統無回應]";
   } catch (err: any) {
     console.error("Chat Error:", err);

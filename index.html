@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-TW" class="dark">
   <head>
@@ -25,8 +26,9 @@
     </style>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
     <script>
-      // 預防性注入 process 物件，防止瀏覽器環境崩潰
-      window.process = window.process || { env: { API_KEY: "" } };
+      // 確保 process 物件存在，但不預設空字串以避免 SDK 混淆
+      window.process = window.process || {};
+      window.process.env = window.process.env || {};
     </script>
     <script type="importmap">
 {
@@ -47,7 +49,6 @@
   </head>
   <body class="text-slate-300 industrial-bg">
     <div id="root"></div>
-    <!-- 核心進入點：必須放在 body 最後 -->
     <script type="module" src="index.tsx"></script>
   </body>
 </html>
