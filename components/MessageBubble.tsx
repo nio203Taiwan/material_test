@@ -1,7 +1,7 @@
-import React from 'https://esm.sh/react@18.3.1';
-import { Message } from '../types.ts';
+import React from 'react';
+import { User, Cpu } from 'lucide-react';
 import { MarkdownRenderer } from './MarkdownRenderer.tsx';
-import { Cpu, User } from 'https://esm.sh/lucide-react@0.294.0?deps=react@18.3.1';
+import { Message } from '../types.ts';
 
 interface MessageBubbleProps {
   message: Message;

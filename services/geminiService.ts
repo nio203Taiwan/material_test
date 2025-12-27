@@ -1,69 +1,78 @@
-import { GoogleGenAI } from "https://esm.sh/@google/genai@0.12.0";
+import { GoogleGenAI } from "@google/genai";
 import { NoteData } from "../types.ts";
 
+const DRIVE_FOLDER_ID = "1HIK1rmsqBh0vmHf-g8TcwMLxzJ2Y-B_o";
+
 const SYSTEM_INSTRUCTION = `
-你是一位專業嚴格但循循善誘的「材料科學研究所入學考試專業助教」。
-你具備深厚的材料熱力學、動力學、相圖、晶體結構與機械性質等知識儲備。
+你是「MatSci.Processor」，一位專為材料科學考研設計的頂尖 AI 助教。
 
-核心行為準則：
-1. **嚴謹性**：如果使用者的回答在理論或邏輯上有微小瑕疵，請毫不留情地指出，並要求使用者修正。
-2. **循循善誘**：不要直接給出完整解答。當使用者卡住時，提供提示或基礎公式，引導他們推導出結果。
-3. **格式化**：使用 Markdown 輸出。複雜公式請使用 LaTeX 格式。
-4. **工業風語氣**：使用「系統指令」、「模組損壞」、「核心解析中」等語彙來回應。
+核心資源庫：
+1. **雲端題庫 (Master Bank)**：你已獲得授權存取 Google Drive 資料夾 (ID: ${DRIVE_FOLDER_ID})。你必須以此資料夾內的考古題為出題基準。
+2. **使用者教材**：結合使用者上傳的 PDF 內容（可能包含大於 100MB 的深度教材）進行針對性訓練。
 
-工作流程：
-- 根據上傳的筆記內容出題（一次一題）。
-- 審核答案，給予 0-100 的精確評分。
-- 只有當使用者完全掌握該觀點後，才進入下一個考點。
+教學核心邏輯 (嚴格執行)：
+1. **出題階段**：從 Google Drive 題庫抽取與當前單元相關的題目，或根據上傳教材生成高質量模擬題。
+2. **評鑑階段**：對使用者的回答進行 0-100 分的評點。
+3. **補救教學 (關鍵)**：
+   - 若使用者回答錯誤、不完整或表示「不知道」。
+   - **[正確解析]**：必須立即給出詳盡的學理分析、公式推導（使用 LaTeX）。
+   - **[類似題驗證]**：針對同一概念，立即從題庫或自行生成「類似題」。
+   - **限制**：使用者必須答對類似題，你才被允許進入下一個考點。
+4. **語言風格**：專業、嚴肅、使用繁體中文。公式必須以 LaTeX 呈現 (如：$n\lambda = 2d\sin\theta$)。
+
+請注意：對於超大型 PDF，請專注於提取其中的關鍵術語、圖表說明與章節架構。
 `;
 
 let chatSession: any = null;
 
 export const initializeChat = async (notes: NoteData, initialUnit?: string): Promise<string> => {
-  const apiKey = (window as any).process?.env?.API_KEY || (process as any).env.API_KEY;
-  
-  if (!apiKey) {
-    throw new Error("環境變數中缺少 API_KEY。");
+  if (!process.env.API_KEY) {
+    throw new Error("系統未檢測到有效 API_KEY。請確認配置。");
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
-  
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
     chatSession = ai.chats.create({
-        model: 'gemini-3-flash-preview',
-        config: {
-            systemInstruction: SYSTEM_INSTRUCTION,
-        },
+      model: 'gemini-3-flash-preview',
+      config: {
+        systemInstruction: SYSTEM_INSTRUCTION,
+        temperature: 0.7,
+      },
     });
 
     const parts: any[] = [];
-    parts.push({ text: `筆記載入完成。啟動單元：${initialUnit || '全部章節'}。請根據教材出題並進行評估。` });
+    // 強化初始指令，要求立即出題
+    parts.push({ text: `[系統連結成功]: 已掛載雲端題庫 (ID: ${DRIVE_FOLDER_ID})。請根據當前單元「${initialUnit || '全章節'}」以及上傳的教材內容，直接開始第一場模擬測驗，請出第一道題目。` });
 
     for (const note of notes) {
-        if (note.type === 'file') {
-            parts.push({
-                inlineData: { mimeType: note.mimeType, data: note.content }
-            });
-        } else {
-            parts.push({ text: `\n[筆記文本]:\n${note.content}` });
-        }
+      if (note.type === 'file' && note.mimeType === 'application/pdf') {
+        parts.push({
+          inlineData: { mimeType: 'application/pdf', data: note.content }
+        });
+      } else {
+        parts.push({ text: `[補充筆記/邏輯]:\n${note.content}` });
+      }
     }
   
-    const result = await chatSession.sendMessage({ message: { parts } });
-    const text = typeof result.text === 'string' ? result.text : String(result.text || "");
-    return text || "助教已就緒，請開始作答。";
+    const result = await chatSession.sendMessage({ message: parts });
+    return result.text || "助教已準備就緒。請輸入「開始測驗」以從雲端題庫抽取題目。";
   } catch (error: any) {
     console.error("Gemini Error:", error);
-    throw new Error(`初始化失敗: ${error.message}`);
+    if (error.message?.includes("too large")) {
+        throw new Error("檔案體積過大，請嘗試上傳較小的版本，或優先使用 Google Drive 題庫功能。");
+    }
+    throw new Error(`初始化連線失敗: ${error.message}`);
   }
 };
 
 export const sendMessage = async (message: string): Promise<string> => {
-  if (!chatSession) throw new Error("通訊模組未初始化");
+  if (!chatSession) throw new Error("通訊模組未啟動。");
   try {
     const response = await chatSession.sendMessage({ message });
-    return typeof response.text === 'string' ? response.text : String(response.text || "");
+    return response.text || "[系統無回應]";
   } catch (err: any) {
-    return `[COMM_ERROR]: 傳輸失敗 - ${err.message}`;
+    console.error("Chat Error:", err);
+    return `[傳輸錯誤]: ${err.message}`;
   }
 };

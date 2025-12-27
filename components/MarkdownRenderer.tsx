@@ -1,7 +1,7 @@
-import React from 'https://esm.sh/react@18.3.1';
-import ReactMarkdown from 'https://esm.sh/react-markdown@9.0.1?deps=react@18.3.1';
-import remarkMath from 'https://esm.sh/remark-math@6.0.0';
-import rehypeKatex from 'https://esm.sh/rehype-katex@7.0.0?deps=react@18.3.1';
+import React from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 
 interface MarkdownRendererProps {
   content: string;
