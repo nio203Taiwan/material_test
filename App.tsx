@@ -61,6 +61,7 @@ const App: React.FC = () => {
   const handleKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVal = e.target.value;
     setApiKey(newVal);
+    setError(null); // 清除錯誤，讓使用者重試
     localStorage.setItem(LOCAL_STORAGE_KEY, newVal);
   };
 
@@ -75,7 +76,8 @@ const App: React.FC = () => {
   }, [deploymentLogs]);
 
   const handleStartSession = (noteData: NoteData) => {
-    if (!apiKey.trim()) {
+    const trimmedKey = apiKey.trim();
+    if (!trimmedKey) {
       setError("請先在配置中心輸入有效的 Gemini API Key 才能啟動系統。");
       setIsAdminOpen(true);
       return;
@@ -96,20 +98,25 @@ const App: React.FC = () => {
     }, 600);
 
     // 將 API Key 傳入初始化函數
-    initializeChat(noteData, apiKey).then((initialResponse) => {
+    initializeChat(noteData, trimmedKey).then((initialResponse) => {
         clearInterval(logInterval);
         setProgress(100);
         setDeploymentLogs(prev => [...prev, "COMPLETE: 專家級核心已成功上線。"]);
-        setMessages([{ role: 'model', text: initialResponse, timestamp: Date.now() }]);
+        
+        // 確保訊息被寫入
+        const welcomeMsg = initialResponse || "核心已連線，但未回傳歡迎語。請直接開始提問。";
+        setMessages([{ role: 'model', text: welcomeMsg, timestamp: Date.now() }]);
+        
         setTimeout(() => {
             setIsAdminOpen(false);
             setIsLoading(false);
         }, 1000);
     }).catch((err) => {
         clearInterval(logInterval);
-        setError(err.message);
+        console.error("Init failed:", err);
+        setError(err.message || "系統初始化發生未知錯誤");
         setIsLoading(false);
-        setIsAdminOpen(true);
+        setIsAdminOpen(true); // 保持開啟以顯示錯誤
     });
   };
 
@@ -146,7 +153,8 @@ const App: React.FC = () => {
       </header>
 
       <main className="flex-1 w-full max-w-6xl mx-auto flex flex-col relative overflow-hidden">
-        {error && (
+        {/* 主要介面的錯誤提示 (僅在 Modal 關閉時顯示) */}
+        {error && !isAdminOpen && (
           <div className="mx-6 mt-6 p-5 bg-red-950/40 border-l-4 border-red-600 text-red-400 text-xs flex items-center gap-4 font-mono z-50 animate-in fade-in slide-in-from-top-4">
             <AlertTriangle size={20} className="flex-shrink-0" />
             <div className="flex-1 font-bold">{error}</div>
@@ -215,6 +223,17 @@ const App: React.FC = () => {
                 </div>
                 {!isLoading && <button onClick={() => setIsAdminOpen(false)} className="text-slate-500 hover:text-white"><X size={28} /></button>}
               </div>
+
+              {/* Modal 內部的錯誤提示 (這裡最重要，防止錯誤被遮擋) */}
+              {error && (
+                <div className="mb-6 p-4 bg-red-950/60 border border-red-500 text-red-200 text-xs font-mono rounded flex items-start gap-3 shadow-[0_0_15px_rgba(239,68,68,0.2)]">
+                    <AlertTriangle size={18} className="text-red-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                        <p className="font-bold mb-1">[CRITICAL ERROR DETECTED]</p>
+                        <p className="opacity-90 leading-relaxed">{error}</p>
+                    </div>
+                </div>
+              )}
 
               {!isLoading && (
                 <div className="mb-8 p-6 bg-slate-900/50 border border-slate-800 rounded-lg">
