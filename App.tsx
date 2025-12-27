@@ -46,6 +46,13 @@ const DEPLOYMENT_STAGES = [
     "STAGE_09: 教材核心融合完成。系統啟動。"
 ];
 
+// Fix: Use the established 'AIStudio' type to resolve the subsequent property declaration error.
+declare global {
+  interface Window {
+    aistudio?: AIStudio;
+  }
+}
+
 const App: React.FC = () => {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [hasKey, setHasKey] = useState(false);
@@ -64,18 +71,35 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const checkKey = async () => {
-      // @ts-ignore
-      const selected = await window.aistudio.hasSelectedApiKey();
-      setHasKey(selected);
-      setIsInitializing(false);
+      try {
+        if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
+          const selected = await window.aistudio.hasSelectedApiKey();
+          setHasKey(selected);
+        } else {
+          // If running on Vercel or other environments, check process.env.API_KEY.
+          setHasKey(!!process.env.API_KEY);
+        }
+      } catch (err) {
+        console.warn("API Key check failed, falling back to environment variable.", err);
+        setHasKey(!!process.env.API_KEY);
+      } finally {
+        setIsInitializing(false);
+      }
     };
     checkKey();
   }, []);
 
   const handleOpenKeySelection = async () => {
-    // @ts-ignore
-    await window.aistudio.openSelectKey();
-    setHasKey(true);
+    if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+      try {
+        await window.aistudio.openSelectKey();
+        setHasKey(true);
+      } catch (err) {
+        console.error("Failed to open key selection", err);
+      }
+    } else {
+      setError("當前環境不支援主動選取金鑰。請確保已在伺服器端或 Vercel 環境變數中設定 API_KEY。");
+    }
   };
 
   useEffect(() => {
@@ -131,7 +155,7 @@ const App: React.FC = () => {
 
       } catch (err: any) {
         clearInterval(logInterval);
-        let msg = err.message || "";
+        let msg = err.message || "初始化失敗";
         if (msg.includes("limit") || msg.includes("400")) {
           msg = "單個檔案分片仍超過 50MB。請將您的 100MB 檔案分割為 2~3 個較小的 PDF 檔案再分別上傳，系統會自動融合。";
         }
@@ -193,173 +217,163 @@ const App: React.FC = () => {
               </button>
             )}
             <button 
-              onClick={toggleAdmin} 
-              className={`p-3 transition-all border rounded shadow-inner ${hasKey ? 'text-yellow-500 bg-yellow-900/20 border-yellow-700/50' : 'text-slate-400 border-slate-800 hover:bg-slate-800'}`}
+              onClick={toggleAdmin}
+              className="p-2 text-slate-400 hover:text-white transition-colors"
             >
-              <Settings size={22} />
+              <Settings size={20} />
             </button>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 w-full max-w-6xl mx-auto flex flex-col bg-[#0d1117]/80 border-x border-slate-800 shadow-2xl overflow-hidden relative">
-        {error && (
-          <div className="mx-6 mt-6 p-5 bg-red-950/40 border-l-4 border-red-600 text-red-400 text-xs flex items-center gap-4 font-mono z-20 shadow-2xl">
-            <AlertTriangle size={20} className="flex-shrink-0" />
-            <div className="flex-1 font-bold leading-relaxed">{error}</div>
-            <button onClick={() => setError(null)} className="p-1 hover:bg-red-900/40 rounded transition-colors"><X size={18} /></button>
-          </div>
-        )}
-
-        {isInitializing ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-6">
-            <div className="w-16 h-16 border-4 border-slate-800 border-t-orange-500 rounded-full animate-spin mb-6"></div>
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-            <div className={`max-w-md w-full p-12 rounded shadow-2xl relative group border transition-all duration-500 ${hasKey ? 'bg-black border-yellow-900/50' : 'bg-slate-900 border-slate-800'}`}>
-              {hasKey && <div className="absolute inset-0 bg-yellow-500/5 pointer-events-none"></div>}
-              <div className="absolute top-0 right-0 p-6">
-                <ShieldCheck className={hasKey ? 'text-yellow-700/50' : 'text-slate-800'} size={48} />
-              </div>
-              {/* Fix duplicate className attribute on Cloud component below */}
-              <Cloud className={`${hasKey ? 'text-yellow-500' : 'text-orange-500'} mx-auto mb-6`} size={56} />
-              <h2 className="text-2xl font-mono font-bold text-white mb-4 uppercase tracking-tighter">部署 100MB+ 教材核心</h2>
-              <p className="text-slate-500 mb-10 text-sm leading-relaxed font-sans">
-                透過「多檔案分片」技術，您可以上傳多個 50MB 以下的檔案，系統將自動融合成超過 100MB 的完整資料庫。
-              </p>
-              <Button onClick={toggleAdmin} variant={hasKey ? 'primary' : 'primary'} className={hasKey ? 'bg-yellow-600 border-yellow-900 hover:bg-yellow-500' : ''}>
-                開始配置與同步
-              </Button>
-            </div>
+      <main className="flex-1 max-w-6xl mx-auto w-full p-6 overflow-hidden flex flex-col">
+        {messages.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center space-y-8 animate-in fade-in zoom-in duration-700">
+             <div className="relative">
+                <div className="absolute inset-0 bg-orange-500/20 blur-3xl rounded-full"></div>
+                <div className="relative bg-slate-900 border-2 border-slate-800 p-8 shadow-2xl">
+                  <Cpu size={48} className="text-[#c2410c] mb-4" />
+                  <h2 className="text-2xl font-mono font-bold tracking-tighter uppercase mb-2">待命系統 [READY]</h2>
+                  <p className="text-slate-500 text-sm max-w-xs font-mono">
+                    請點擊右上方部署按鈕或設定教材，以啟動材料科學專用 AI 核心。
+                  </p>
+                </div>
+             </div>
+             <Button onClick={toggleAdmin} className="group">
+                <Settings size={18} className="group-hover:rotate-90 transition-transform" />
+                進入部署終端
+             </Button>
           </div>
         ) : (
-          <div className="flex flex-col h-full overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-4 md:p-10 space-y-12 scroll-smooth custom-scrollbar">
-              {messages.map((msg, idx) => <MessageBubble key={idx} message={msg} />)}
-              {isLoading && (
-                 <div className="flex justify-start">
-                    <div className={`border-l-4 px-8 py-5 flex items-center gap-5 shadow-2xl ${hasKey ? 'bg-black border-yellow-600' : 'bg-slate-900 border-orange-600'}`}>
-                        <Activity className={hasKey ? 'text-yellow-500 animate-pulse' : 'text-orange-500 animate-pulse'} size={20} />
-                        <span className={`font-mono text-xs uppercase tracking-widest font-bold ${hasKey ? 'text-yellow-500' : 'text-orange-400'}`}>正在演算高級學理...</span>
-                    </div>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-
-            <div className="p-8 bg-black/60 border-t border-slate-800 backdrop-blur-lg">
-                <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto flex gap-4">
-                    <textarea
-                        className="flex-1 p-5 bg-black border border-slate-700 text-slate-100 focus:border-orange-500 focus:ring-1 focus:ring-orange-500/50 outline-none resize-none font-mono text-sm shadow-inner"
-                        placeholder="輸入對教材內容的提問..."
-                        rows={1}
-                        value={inputText}
-                        onChange={(e) => setInputText(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
-                    />
-                    <button 
-                      type="submit" 
-                      disabled={!inputText.trim() || isLoading} 
-                      className={`px-10 text-white font-mono font-bold uppercase text-xs tracking-widest transition-all disabled:opacity-30 border-b-4 active:border-b-0 active:translate-y-1 shadow-lg ${hasKey ? 'bg-yellow-700 hover:bg-yellow-600 border-yellow-900' : 'bg-orange-600 hover:bg-orange-500 border-orange-800'}`}
-                    >
-                        <Send size={18} />
-                    </button>
-                </form>
-            </div>
+          <div className="flex-1 overflow-y-auto space-y-6 pb-20 pr-2 custom-scrollbar">
+            {messages.map((msg, i) => (
+              <MessageBubble key={i} message={msg} />
+            ))}
+            <div ref={messagesEndRef} />
           </div>
         )}
+
+        <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-[#0a0c10] via-[#0a0c10]/90 to-transparent">
+          <div className="max-w-4xl mx-auto relative">
+             {error && (
+                <div className="absolute bottom-full left-0 right-0 mb-4 p-3 bg-red-950/80 border border-red-500/50 rounded flex items-center gap-3 text-red-400 text-xs font-mono uppercase animate-in slide-in-from-bottom-2">
+                   <AlertTriangle size={14} />
+                   <span>{error}</span>
+                   <button onClick={() => setError(null)} className="ml-auto hover:text-white"><X size={14} /></button>
+                </div>
+             )}
+             
+             <form onSubmit={handleSendMessage} className="relative group">
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-orange-600 to-cyan-600 rounded-none blur opacity-20 group-focus-within:opacity-40 transition duration-500"></div>
+                <div className="relative flex bg-slate-900 border border-slate-800">
+                  <div className="flex items-center px-4 border-r border-slate-800 text-slate-500">
+                    <Terminal size={16} />
+                  </div>
+                  <input 
+                    type="text"
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    placeholder={isLoading ? "正在計算學理分析..." : "輸入材料科學問題..."}
+                    className="flex-1 bg-transparent px-6 py-4 outline-none font-mono text-sm placeholder:text-slate-600"
+                    disabled={isLoading || messages.length === 0}
+                  />
+                  <button 
+                    type="submit"
+                    disabled={isLoading || !inputText.trim() || messages.length === 0}
+                    className="px-8 bg-slate-800 border-l border-slate-700 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-slate-800 transition-colors text-cyan-400"
+                  >
+                    {isLoading ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} />}
+                  </button>
+                </div>
+             </form>
+          </div>
+        </div>
       </main>
 
+      {/* Deployment Modal */}
       {isAdminOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-2xl">
-          <div className={`w-full max-w-3xl max-h-[90vh] overflow-hidden border p-1 shadow-[0_0_120px_rgba(0,0,0,0.6)] flex flex-col rounded-lg ${hasKey ? 'bg-[#0a0c10] border-yellow-700/50' : 'bg-[#0d1117] border-slate-700'}`}>
-            <div className={hasKey ? "h-1 bg-yellow-600" : "caution-stripe"}></div>
-            
-            <div className="p-8 md:p-10 flex-1 overflow-y-auto custom-scrollbar">
-              <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-800">
-                <div className="flex items-center gap-4">
-                  <div className={`p-3 rounded-sm ${isLoading ? (hasKey ? 'bg-yellow-600' : 'bg-orange-600') + ' animate-pulse' : 'bg-slate-800'}`}>
-                    {isLoading ? <Zap size={24} className="text-white" /> : <Cpu size={24} className="text-slate-400" />}
-                  </div>
-                  <div>
-                    <h2 className={`text-xl font-mono font-bold uppercase tracking-tighter ${hasKey ? 'text-yellow-500' : 'text-white'}`}>
-                      {isLoading ? 'CORE_ACTIVE_DEPLOY' : '教材配置中心'}
-                    </h2>
-                    <div className="flex items-center gap-3 mt-1">
-                       <span className={`text-[10px] font-mono tracking-widest uppercase ${isLoading ? 'text-orange-500' : 'text-emerald-500'}`}>{statusText}</span>
-                       {hasKey && <span className="text-[9px] px-2 py-0.5 bg-yellow-600/20 text-yellow-500 border border-yellow-500/30 rounded-full font-bold">PREMIUM_TIER</span>}
-                    </div>
-                  </div>
-                </div>
-                {!isLoading && (
-                  <button onClick={toggleAdmin} className="text-slate-500 hover:text-white transition-colors p-2">
-                    <X size={28} />
-                  </button>
-                )}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-2xl shadow-2xl my-auto">
+            <div className="flex items-center justify-between p-6 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <Box className="text-orange-500" />
+                <h2 className="font-mono font-bold uppercase tracking-tighter">系統部署與教材掛載</h2>
               </div>
-
-              {!hasKey && !isLoading && (
-                 <div className="mb-8 p-6 bg-yellow-950/20 border border-yellow-600/30 rounded-lg flex flex-col md:flex-row items-center justify-between gap-6">
-                    <div className="flex items-center gap-4 text-yellow-500">
-                       <CreditCard size={28} className="flex-shrink-0" />
-                       <div className="text-left">
-                          <p className="font-bold text-sm uppercase">建議選取付費 API Key</p>
-                          <p className="text-[10px] text-slate-400 font-sans mt-1">付費 API 提供更高頻寬處理大型教材分片 (100MB+)。</p>
-                       </div>
-                    </div>
-                    <button 
-                      onClick={handleOpenKeySelection}
-                      className="whitespace-nowrap bg-yellow-600 hover:bg-yellow-500 text-black font-bold py-2 px-6 rounded text-xs uppercase transition-all shadow-lg"
-                    >
-                      啟用付費功能
-                    </button>
-                 </div>
-              )}
-
-              {isLoading ? (
-                <div className="flex flex-col h-[480px]">
-                  <div className="flex items-center justify-between mb-6 px-1">
-                    <div className="flex items-center gap-2">
-                      <Activity size={14} className={hasKey ? 'text-yellow-500' : 'text-orange-500'} />
-                      <span className={`text-[11px] font-mono font-bold uppercase tracking-widest ${hasKey ? 'text-yellow-500' : 'text-orange-500'}`}>Processing</span>
-                    </div>
-                    <span className="text-slate-400 font-mono text-sm font-bold">{Math.floor(progress)}%</span>
-                  </div>
-
-                  <div className="w-full h-3 bg-slate-950 border border-slate-800 mb-10 overflow-hidden rounded-full p-0.5">
-                    <div className={`h-full transition-all duration-700 rounded-full ${hasKey ? 'bg-gradient-to-r from-yellow-700 to-yellow-400' : 'bg-gradient-to-r from-orange-800 to-orange-500'}`} style={{ width: `${progress}%` }}></div>
-                  </div>
-
-                  <div className="flex-1 bg-black border border-slate-800 p-8 font-mono text-[11px] overflow-hidden relative shadow-2xl rounded">
-                    <div className={`absolute inset-0 h-40 w-full animate-scanline pointer-events-none ${hasKey ? 'bg-gradient-to-b from-transparent via-yellow-500/5 to-transparent' : 'bg-gradient-to-b from-transparent via-orange-500/5 to-transparent'}`}></div>
-                    <div className="space-y-4 h-full overflow-y-auto no-scrollbar scroll-smooth">
-                        {deploymentLogs.map((log, i) => (
-                            <div key={i} className="flex items-start gap-4">
-                                <span className="text-slate-700 font-bold">[{i+1}]</span>
-                                <span className={i === deploymentLogs.length - 1 ? (hasKey ? "text-yellow-500 font-bold" : "text-orange-400 font-bold") : "text-slate-600"}>{log}</span>
-                            </div>
-                        ))}
-                        <div ref={logEndRef} />
+              <button onClick={toggleAdmin} className="text-slate-500 hover:text-white"><X /></button>
+            </div>
+            
+            <div className="p-8">
+              {!isLoading ? (
+                <>
+                  <div className="mb-8">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">選擇目標單元</label>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {UNITS.map(unit => (
+                        <button
+                          key={unit.id}
+                          onClick={() => setSelectedUnit(unit)}
+                          className={`p-3 border text-left transition-all ${
+                            selectedUnit.id === unit.id 
+                            ? 'bg-orange-500/10 border-orange-500 text-orange-400' 
+                            : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-500'
+                          }`}
+                        >
+                          <div className="font-bold text-[11px] mb-1">{unit.label}</div>
+                          <div className="text-[9px] opacity-60 leading-tight">{unit.desc}</div>
+                        </button>
+                      ))}
                     </div>
                   </div>
-                </div>
+
+                  <NoteUploader onNotesSubmit={handleStartSession} isLoading={isLoading} />
+                </>
               ) : (
-                <NoteUploader onNotesSubmit={handleStartSession} isLoading={isLoading} />
+                <div className="py-10">
+                   <div className="mb-8 space-y-2">
+                      <div className="flex justify-between text-[10px] font-mono text-cyan-400 mb-1">
+                        <span>DEPLOYMENT_PROGRESS</span>
+                        <span>{Math.round(progress)}%</span>
+                      </div>
+                      <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-cyan-500 transition-all duration-300 shadow-[0_0_10px_rgba(6,182,212,0.5)]"
+                          style={{ width: `${progress}%` }}
+                        ></div>
+                      </div>
+                   </div>
+
+                   <div className="bg-black border border-slate-800 p-6 font-mono text-[10px] h-48 overflow-y-auto space-y-1 text-slate-400">
+                      {deploymentLogs.map((log, i) => (
+                        <div key={i} className="flex gap-3">
+                           <span className="text-slate-700">[{new Date().toLocaleTimeString()}]</span>
+                           <span className={log.includes('COMPLETE') ? 'text-emerald-500' : ''}>{log}</span>
+                        </div>
+                      ))}
+                      <div ref={logEndRef} />
+                   </div>
+                   
+                   <div className="mt-8 flex flex-col items-center gap-4">
+                      <div className="flex items-center gap-3 text-cyan-400 text-xs font-bold animate-pulse uppercase tracking-widest">
+                         <Loader2 className="animate-spin" size={14} />
+                         {statusText}...
+                      </div>
+                   </div>
+                </div>
               )}
             </div>
           </div>
         </div>
       )}
 
-      <style>{`
-        @keyframes scanline { 0% { transform: translateY(-100%); } 100% { transform: translateY(400%); } }
-        .animate-scanline { animation: scanline 5s linear infinite; }
-        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
-      `}</style>
+      {/* Key Info Banner */}
+      {!hasKey && !isAdminOpen && (
+        <div className="bg-orange-950/20 border-t border-orange-900/30 p-2 text-center text-[10px] font-mono text-orange-400/60 uppercase tracking-widest">
+           Notice: Free tier has strict token limits. Upgrading to paid key is recommended for large PDFs.
+        </div>
+      )}
     </div>
   );
 };
 
+// Fix: Add default export as expected by index.tsx.
 export default App;
